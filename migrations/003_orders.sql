@@ -1,7 +1,9 @@
 -- ORDERS (created by phone calls via ElevenLabs + Twilio + n8n)
 CREATE TABLE orders (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_name    TEXT        NOT NULL DEFAULT '',
     coffee_type      TEXT        NOT NULL,
+    customer_phone   TEXT        NOT NULL DEFAULT '',
     delivery_address TEXT        NOT NULL,
     caller_phone     TEXT        NOT NULL DEFAULT '',
     status           TEXT        NOT NULL DEFAULT 'pending'

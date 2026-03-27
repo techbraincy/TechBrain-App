@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 
 interface Order {
   id: string;
+  customer_name: string;
   coffee_type: string;
+  customer_phone: string;
   delivery_address: string;
   caller_phone: string;
   status: "pending" | "done";
@@ -111,9 +113,12 @@ export default function OrdersPage() {
                           {timeAgo(order.created_at)}
                         </span>
                       </div>
+                      {order.customer_name && (
+                        <p className="text-sm text-gray-800 pl-4 font-medium">{order.customer_name}</p>
+                      )}
                       <p className="text-sm text-gray-600 pl-4">{order.delivery_address}</p>
-                      {order.caller_phone && (
-                        <p className="text-xs text-gray-400 pl-4">{order.caller_phone}</p>
+                      {order.customer_phone && (
+                        <p className="text-xs text-gray-500 pl-4">{order.customer_phone}</p>
                       )}
                     </div>
                     <button
@@ -150,6 +155,9 @@ export default function OrdersPage() {
                           {timeAgo(order.created_at)}
                         </span>
                       </div>
+                      {order.customer_name && (
+                        <p className="text-sm text-gray-400 pl-4 line-through">{order.customer_name}</p>
+                      )}
                       <p className="text-sm text-gray-400 pl-4 line-through">
                         {order.delivery_address}
                       </p>
