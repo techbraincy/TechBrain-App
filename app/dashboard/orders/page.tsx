@@ -61,6 +61,14 @@ export default function OrdersPage() {
     fetchOrders();
   };
 
+  const removeOrder = async (id: string) => {
+    await fetch(`/api/orders/${id}`, {
+      method: "DELETE",
+      headers: { "x-csrf-token": getCsrfToken() },
+    });
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
+
   const pending = orders.filter((o) => o.status === "pending");
   const done = orders.filter((o) => o.status === "done");
 
@@ -162,9 +170,12 @@ export default function OrdersPage() {
                         {order.delivery_address}
                       </p>
                     </div>
-                    <span className="flex-shrink-0 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
-                      Done
-                    </span>
+                    <button
+                      onClick={() => removeOrder(order.id)}
+                      className="flex-shrink-0 text-xs text-red-400 hover:text-red-600 bg-gray-100 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
