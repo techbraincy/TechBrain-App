@@ -21,6 +21,12 @@ export default async function DashboardLayout({
           >
             My Sheets
           </Link>
+          <Link
+            href="/dashboard/orders"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Orders
+          </Link>
           {role === "superadmin" && (
             <Link
               href="/admin"
