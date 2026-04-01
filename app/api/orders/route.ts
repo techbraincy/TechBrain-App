@@ -10,7 +10,7 @@ export async function GET() {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, coffee_type, delivery_address, caller_phone, status, created_at")
+    .select("id, customer_name, items_summary, customer_phone, delivery_address, caller_id, status, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
 

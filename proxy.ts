@@ -80,10 +80,10 @@ export async function proxy(req: NextRequest) {
 
   // Attach user info to request headers so Server Components and
   // Route Handlers can access them without another DB query.
-  const response = NextResponse.next();
-  response.headers.set("x-user-id", user.id);
-  response.headers.set("x-user-role", user.role as string);
-  return response;
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-user-id", user.id);
+  requestHeaders.set("x-user-role", user.role as string);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 function redirectToLogin(req: NextRequest): NextResponse {

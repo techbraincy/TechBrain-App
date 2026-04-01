@@ -5,10 +5,10 @@ import { useEffect, useState, useCallback } from "react";
 interface Order {
   id: string;
   customer_name: string;
-  coffee_type: string;
+  items_summary: string;
   customer_phone: string;
   delivery_address: string;
-  caller_phone: string;
+  caller_id: string;
   status: "pending" | "done";
   created_at: string;
 }
@@ -115,7 +115,7 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
                         <span className="font-medium text-gray-900 capitalize">
-                          {order.coffee_type}
+                          {order.items_summary}
                         </span>
                         <span className="text-xs text-gray-400">
                           {timeAgo(order.created_at)}
@@ -157,7 +157,7 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />
                         <span className="font-medium text-gray-500 line-through capitalize">
-                          {order.coffee_type}
+                          {order.items_summary}
                         </span>
                         <span className="text-xs text-gray-400">
                           {timeAgo(order.created_at)}
