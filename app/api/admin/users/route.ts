@@ -14,15 +14,12 @@ const CreateUserSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, "Username can only contain letters, numbers, _, . and -"),
   password: z.string().min(12).max(200),
   role: z.enum(["user", "superadmin"]),
+  account_type: z.enum(["caffe", "restaurant"]).nullable().optional(),
 });
 
-/**
- * GET /api/admin/users
- * Returns all users (no password hashes).
- */
 export async function GET() {
-  const headersList = await headers();
-  if (headersList.get("x-user-role") !== "superadmin") {
+  const h = await headers();
+  if (h.get("x-user-role") !== "superadmin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -30,14 +27,10 @@ export async function GET() {
   return NextResponse.json({ users });
 }
 
-/**
- * POST /api/admin/users
- * Creates a new user.
- */
 export async function POST(req: NextRequest) {
-  const headersList = await headers();
-  const actorId = headersList.get("x-user-id");
-  if (headersList.get("x-user-role") !== "superadmin" || !actorId) {
+  const h = await headers();
+  const actorId = h.get("x-user-id");
+  if (h.get("x-user-role") !== "superadmin" || !actorId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -65,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   let user;
   try {
-    user = await createUser(body.username, hash, body.role);
+    user = await createUser(body.username, hash, body.role, body.account_type ?? null);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     if (msg.includes("duplicate") || msg.includes("unique")) {
@@ -74,7 +67,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create user." }, { status: 500 });
   }
 
-  writeAuditLog(actorId, "create_user", "user", user.id, { username: user.username, role: user.role });
+  writeAuditLog(actorId, "create_user", "user", user.id, {
+    username: user.username,
+    role: user.role,
+    account_type: user.account_type,
+  });
 
   return NextResponse.json({ user }, { status: 201 });
 }

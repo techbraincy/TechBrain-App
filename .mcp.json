@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "npx",
+      "args": ["-y", "n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "https://techbrain.app.n8n.cloud",
+        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjODA2YWQ2MC0zYjU3LTQ5NzctODFlMi05NmRmNGM0ZmM0MGYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNmNkZGJiMzAtNzA5YS00Njc3LWIzMDgtMGZhODQ4MDc0ODgyIiwiaWF0IjoxNzc0NjA4NTkwLCJleHAiOjE3NzcxNTA4MDB9.na1VZ3akDIakXTqTeww7PeIhXiNJZuZvLgA3_5cS9tQ"
+      }
+    }
+  }
+}

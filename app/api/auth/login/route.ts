@@ -24,9 +24,7 @@ export async function POST(req: NextRequest) {
       { error: "Too many login attempts. Please try again later." },
       {
         status: 429,
-        headers: {
-          "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)),
-        },
+        headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) },
       }
     );
   }
@@ -48,8 +46,7 @@ export async function POST(req: NextRequest) {
   // 4. Look up user (timing-safe: always wait even if user not found)
   const user = await getUserByUsername(body.username);
 
-  // 5. Verify password. Use a dummy compare if user not found to prevent
-  //    timing-based username enumeration.
+  // 5. Verify password
   const DUMMY_HASH = "$2b$12$invalid.hash.used.for.timing.safety.only.xxxxxx";
   const passwordValid = await verifyPassword(
     body.password,
@@ -69,5 +66,5 @@ export async function POST(req: NextRequest) {
     userAgent: req.headers.get("user-agent") ?? undefined,
   });
 
-  return NextResponse.json({ role: user.role });
+  return NextResponse.json({ role: user.role, account_type: user.account_type });
 }

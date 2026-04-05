@@ -1,44 +1,33 @@
 import { headers } from "next/headers";
-import Link from "next/link";
-import LogoutButton from "@/components/auth/logout-button";
+import { getSheetsByUserId, getAllSheets } from "@/lib/db/queries/sheets";
+import Sidebar from "@/components/layouts/sidebar";
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const headersList = await headers();
-  const role = headersList.get("x-user-role");
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const h = await headers();
+  const userId = h.get("x-user-id") ?? "";
+  const role = (h.get("x-user-role") ?? "user") as "user" | "superadmin";
+  const username = h.get("x-username") ?? "user";
+  const accountType = h.get("x-account-type") || null;
+
+  // Check if user has any sheets assigned
+  const sheets = role === "superadmin"
+    ? await getAllSheets()
+    : await getSheetsByUserId(userId);
+  const hasSheets = sheets.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <span className="font-semibold text-gray-900">Sheets Dashboard</span>
-          <Link
-            href="/dashboard"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            My Sheets
-          </Link>
-          <Link
-            href="/dashboard/orders"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Orders
-          </Link>
-          {role === "superadmin" && (
-            <Link
-              href="/admin"
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Admin
-            </Link>
-          )}
+    <div className="flex h-screen overflow-hidden bg-slate-950">
+      <Sidebar
+        username={username}
+        role={role}
+        accountType={accountType}
+        hasSheets={hasSheets}
+      />
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl mx-auto px-8 py-8">
+          {children}
         </div>
-        <LogoutButton />
-      </nav>
-      <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>
+      </main>
     </div>
   );
 }

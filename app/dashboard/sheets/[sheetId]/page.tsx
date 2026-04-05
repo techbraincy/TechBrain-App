@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getAssignedSheetByIdForUser, getSheetById } from "@/lib/db/queries/sheets";
 import SheetDataTable from "@/components/dashboard/sheet-data-table";
 import Link from "next/link";
+import { Sheet, ChevronRight } from "lucide-react";
 
 export default async function SheetPage({
   params,
@@ -10,11 +11,10 @@ export default async function SheetPage({
   params: Promise<{ sheetId: string }>;
 }) {
   const { sheetId } = await params;
-  const headersList = await headers();
-  const userId = headersList.get("x-user-id")!;
-  const role = headersList.get("x-user-role");
+  const h = await headers();
+  const userId = h.get("x-user-id")!;
+  const role = h.get("x-user-role");
 
-  // Verify access
   const sheet =
     role === "superadmin"
       ? await getSheetById(sheetId)
@@ -23,19 +23,28 @@ export default async function SheetPage({
   if (!sheet) notFound();
 
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-800">
-          ← Back
+    <div className="space-y-6 animate-fade-up">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-slate-500">
+        <Link href="/dashboard/sheets" className="hover:text-slate-300 transition-colors">
+          Sheets
         </Link>
-        <span className="text-gray-300">/</span>
-        <h1 className="text-xl font-semibold text-gray-900">{sheet.display_name}</h1>
-        <span className="text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">
-          {sheet.range_notation}
-        </span>
+        <ChevronRight className="w-3.5 h-3.5" />
+        <span className="text-slate-300">{sheet.display_name}</span>
       </div>
 
-      {/* Client Component — fetches data and handles refresh */}
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+          <Sheet className="w-5 h-5 text-indigo-400" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-slate-100">{sheet.display_name}</h1>
+          <p className="text-xs text-slate-500 font-mono mt-1">{sheet.spreadsheet_id} · {sheet.range_notation}</p>
+        </div>
+      </div>
+
+      {/* Data table */}
       <SheetDataTable sheetId={sheetId} displayName={sheet.display_name} />
     </div>
   );

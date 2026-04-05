@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Sheet } from "@/types/db";
+import { Plus, Trash2, X, Database, AlertCircle } from "lucide-react";
 
 interface SheetRegistryProps {
   sheets: Sheet[];
@@ -22,7 +23,6 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // New sheet form
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [range, setRange] = useState("Sheet1");
@@ -38,11 +38,7 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
       const res = await fetch("/api/admin/sheets", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-        body: JSON.stringify({
-          spreadsheet_id: spreadsheetId,
-          display_name: displayName,
-          range_notation: range,
-        }),
+        body: JSON.stringify({ spreadsheet_id: spreadsheetId, display_name: displayName, range_notation: range }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -51,9 +47,7 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
       }
       setSheets((prev) => [data.sheet, ...prev]);
       setShowForm(false);
-      setSpreadsheetId("");
-      setDisplayName("");
-      setRange("Sheet1");
+      setSpreadsheetId(""); setDisplayName(""); setRange("Sheet1");
       router.refresh();
     } catch {
       setFormError("An unexpected error occurred.");
@@ -63,7 +57,7 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
   }
 
   async function handleDelete(sheetId: string, name: string) {
-    if (!confirm(`Delete sheet "${name}"? This will remove all user assignments.`)) return;
+    if (!confirm(`Delete "${name}"? This removes all user assignments.`)) return;
     setDeletingId(sheetId);
     try {
       const csrf = await getCsrf();
@@ -75,7 +69,7 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
         setSheets((prev) => prev.filter((s) => s.id !== sheetId));
       } else {
         const d = await res.json();
-        alert(d.error ?? "Failed to delete sheet.");
+        alert(d.error ?? "Failed to delete.");
       }
     } finally {
       setDeletingId(null);
@@ -83,71 +77,87 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
   }
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100">Sheet Registry</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{sheets.length} registered</p>
+        </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+          className={`flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-all ${
+            showForm
+              ? "bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200"
+              : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+          }`}
         >
-          {showForm ? "Cancel" : "+ Register Sheet"}
+          {showForm ? <><X className="w-4 h-4" /> Cancel</> : <><Plus className="w-4 h-4" /> Register Sheet</>}
         </button>
       </div>
 
+      {/* Register form */}
       {showForm && (
-        <div className="mb-6 bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Register Google Sheet</h2>
-          <p className="text-xs text-gray-500 mb-4">
-            The spreadsheet ID is the long string in the Google Sheet URL:<br />
-            <code className="bg-gray-100 px-1 rounded">
-              docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
-            </code>
-          </p>
-          <form onSubmit={handleCreate} className="space-y-3 max-w-lg">
-            {formError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{formError}</div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Spreadsheet ID</label>
-              <input
-                type="text"
-                required
-                value={spreadsheetId}
-                onChange={(e) => setSpreadsheetId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-                disabled={formLoading}
-              />
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 animate-slide-down">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Register Google Sheet</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Find the spreadsheet ID in the URL:{" "}
+              <code className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
+              </code>
+            </p>
+          </div>
+
+          {formError && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              {formError}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-              <input
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. Q1 Sales Report"
-                disabled={formLoading}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Range Notation
-                <span className="text-gray-400 font-normal ml-1">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={range}
-                onChange={(e) => setRange(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Sheet1 or Sheet1!A1:Z100"
-                disabled={formLoading}
-              />
+          )}
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-widest">Spreadsheet ID</label>
+                <input
+                  type="text"
+                  required
+                  value={spreadsheetId}
+                  onChange={(e) => setSpreadsheetId(e.target.value)}
+                  className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50"
+                  placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                  disabled={formLoading}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-widest">Display Name</label>
+                <input
+                  type="text"
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50"
+                  placeholder="e.g. Q1 Sales Report"
+                  disabled={formLoading}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-widest">Range Notation</label>
+                <input
+                  type="text"
+                  value={range}
+                  onChange={(e) => setRange(e.target.value)}
+                  className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50"
+                  placeholder="Sheet1 or Sheet1!A1:Z100"
+                  disabled={formLoading}
+                />
+              </div>
             </div>
             <button
               type="submit"
               disabled={formLoading}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 transition-all"
             >
               {formLoading ? "Registering…" : "Register Sheet"}
             </button>
@@ -155,44 +165,54 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Spreadsheet ID</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Range</th>
-              <th className="px-4 py-3 text-right font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sheets.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                  No sheets registered yet.
-                </td>
+      {/* Sheets table */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        {sheets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Database className="w-8 h-8 text-slate-700 mb-3" />
+            <p className="text-sm text-slate-500">No sheets registered yet.</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg transition-all"
+            >
+              Register the first sheet →
+            </button>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800">
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Spreadsheet ID</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Range</th>
+                <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
               </tr>
-            )}
-            {sheets.map((sheet) => (
-              <tr key={sheet.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{sheet.display_name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500 max-w-[200px] truncate">
-                  {sheet.spreadsheet_id}
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{sheet.range_notation}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleDelete(sheet.id, sheet.display_name)}
-                    disabled={deletingId === sheet.id}
-                    className="text-red-500 hover:text-red-700 text-sm disabled:opacity-50"
-                  >
-                    {deletingId === sheet.id ? "Deleting…" : "Delete"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sheets.map((sheet) => (
+                <tr key={sheet.id} className="border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30 transition-colors">
+                  <td className="px-5 py-4 font-medium text-slate-200">{sheet.display_name}</td>
+                  <td className="px-5 py-4 font-mono text-xs text-slate-500 max-w-[200px] truncate">{sheet.spreadsheet_id}</td>
+                  <td className="px-5 py-4">
+                    <span className="text-[10px] text-slate-500 bg-slate-800 border border-slate-700 rounded px-2 py-0.5">
+                      {sheet.range_notation}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <button
+                      onClick={() => handleDelete(sheet.id, sheet.display_name)}
+                      disabled={deletingId === sheet.id}
+                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50 ml-auto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {deletingId === sheet.id ? "…" : "Delete"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

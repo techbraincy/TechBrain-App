@@ -32,7 +32,8 @@ export async function getSessionByToken(token: string): Promise<SessionWithUser 
       users (
         id,
         username,
-        role
+        role,
+        account_type
       )
     `
     )
@@ -55,6 +56,7 @@ export async function getSessionByToken(token: string): Promise<SessionWithUser 
       id: user.id,
       username: user.username,
       role: user.role as "user" | "superadmin",
+      account_type: (user as any).account_type as "caffe" | "restaurant" | null ?? null,
     },
   };
 }

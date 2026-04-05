@@ -6,6 +6,8 @@ export interface User {
   id: string;
   username: string;
   role: "user" | "superadmin";
+  /** null = access to everything; 'caffe' = orders only; 'restaurant' = reservations only */
+  account_type: "caffe" | "restaurant" | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +36,7 @@ export interface SessionWithUser {
     id: string;
     username: string;
     role: "user" | "superadmin";
+    account_type: "caffe" | "restaurant" | null;
   };
 }
 
@@ -71,11 +74,22 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface Reservation {
+  reservation_id: string;
+  customer_name: string;
+  phone_number: string;
+  reservation_date: string; // YYYY-MM-DD
+  reservation_time: string; // HH:MM or HH:MM:SS
+  party_size: number;
+  table_id: string;
+  status: "confirmed" | "cancelled";
+  notes: string;
+  previous_reservation_id: string | null;
+  created_at: string;
+}
+
 // ─────────────────────────────────────────────
 // Supabase generic database types
-// Used to type the createClient call in supabase-server.ts
-// For full type safety, replace this with the auto-generated
-// types from `npx supabase gen types typescript --project-id YOUR_ID`
 // ─────────────────────────────────────────────
 export type Database = {
   public: {
