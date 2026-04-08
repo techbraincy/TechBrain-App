@@ -37,7 +37,10 @@ export async function PATCH(
   if (tenantId) query = query.eq("tenant_id", tenantId);
 
   const { error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[PATCH /api/orders] supabase error:", JSON.stringify(error));
+    return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
 
