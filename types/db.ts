@@ -2,12 +2,26 @@
 // TypeScript types matching the database schema
 // ─────────────────────────────────────────────
 
+export type FeatureKey = "orders" | "reservations" | "analytics" | "calendar" | "history" | "sheets";
+export type Permissions = Partial<Record<FeatureKey, boolean>>;
+
+export interface Tenant {
+  id: string;
+  name: string;
+  type: "caffe" | "restaurant";
+  created_at: string;
+}
+
 export interface User {
   id: string;
   username: string;
   role: "user" | "superadmin";
-  /** null = access to everything; 'caffe' = orders only; 'restaurant' = reservations only */
+  /** Kept for legacy/fallback when no tenant assigned */
   account_type: "caffe" | "restaurant" | null;
+  /** When set, user belongs to this tenant and only sees that tenant's data */
+  tenant_id: string | null;
+  /** When set, overrides account_type-based defaults for each feature */
+  permissions: Permissions | null;
   created_at: string;
   updated_at: string;
 }

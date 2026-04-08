@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getUserById } from "@/lib/db/queries/users";
+import { getUserById, getUserPermissions } from "@/lib/db/queries/users";
 import { getAllSheets, getAssignmentsByUserId } from "@/lib/db/queries/sheets";
+import { getAllTenants } from "@/lib/db/queries/tenants";
 import UserDetail from "@/components/admin/user-detail";
 
 export default async function AdminUserPage({
@@ -9,10 +10,12 @@ export default async function AdminUserPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  const [user, allSheets, assignments] = await Promise.all([
+  const [user, allSheets, assignments, permissions, allTenants] = await Promise.all([
     getUserById(userId),
     getAllSheets(),
     getAssignmentsByUserId(userId),
+    getUserPermissions(userId),
+    getAllTenants(),
   ]);
 
   if (!user) notFound();
@@ -24,6 +27,8 @@ export default async function AdminUserPage({
       user={user}
       allSheets={allSheets}
       assignedSheetIds={Array.from(assignedSheetIds)}
+      initialPermissions={permissions}
+      allTenants={allTenants}
     />
   );
 }

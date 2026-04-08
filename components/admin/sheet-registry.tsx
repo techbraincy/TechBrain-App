@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Sheet } from "@/types/db";
+import { useToast, useConfirm } from "@/components/ui/toast";
 import { Plus, Trash2, X, Database, AlertCircle } from "lucide-react";
 
 interface SheetRegistryProps {
@@ -19,6 +20,8 @@ async function getCsrf(): Promise<string> {
 
 export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
   const router = useRouter();
+  const { success, error: toastError } = useToast();
+  const confirm = useConfirm();
   const [sheets, setSheets] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -48,6 +51,7 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
       setSheets((prev) => [data.sheet, ...prev]);
       setShowForm(false);
       setSpreadsheetId(""); setDisplayName(""); setRange("Sheet1");
+      success("Sheet registered", `"${displayName}" is now available to assign.`);
       router.refresh();
     } catch {
       setFormError("An unexpected error occurred.");
@@ -57,7 +61,14 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
   }
 
   async function handleDelete(sheetId: string, name: string) {
-    if (!confirm(`Delete "${name}"? This removes all user assignments.`)) return;
+    const ok = await confirm({
+      title: `Delete "${name}"?`,
+      message: "This removes the sheet and all user assignments permanently.",
+      confirmLabel: "Delete sheet",
+      danger: true,
+    });
+    if (!ok) return;
+
     setDeletingId(sheetId);
     try {
       const csrf = await getCsrf();
@@ -67,9 +78,10 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
       });
       if (res.ok) {
         setSheets((prev) => prev.filter((s) => s.id !== sheetId));
+        success("Sheet deleted", `"${name}" has been removed.`);
       } else {
         const d = await res.json();
-        alert(d.error ?? "Failed to delete.");
+        toastError("Delete failed", d.error ?? "Something went wrong.");
       }
     } finally {
       setDeletingId(null);
@@ -78,7 +90,6 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-100">Sheet Registry</h1>
@@ -96,7 +107,6 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
         </button>
       </div>
 
-      {/* Register form */}
       {showForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 animate-slide-down">
           <div>
@@ -165,7 +175,6 @@ export default function SheetRegistry({ sheets: initial }: SheetRegistryProps) {
         </div>
       )}
 
-      {/* Sheets table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         {sheets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">

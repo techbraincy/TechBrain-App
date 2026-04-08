@@ -12,7 +12,7 @@
  * CSRF vectors. This is defense-in-depth.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies } from "next/headers"; // used only in setCsrfCookie
 
 const CSRF_COOKIE = "csrf";
 const CSRF_HEADER = "x-csrf-token";
@@ -43,19 +43,26 @@ export async function setCsrfCookie(): Promise<string> {
 
 /**
  * Validate the CSRF token from the request.
- * Reads the cookie value and compares it against the header value.
+ * Reads the cookie value directly from the request Cookie header and compares
+ * it against the X-CSRF-Token request header value.
  * Returns true if valid, false otherwise.
  */
 export async function validateCsrf(request: Request): Promise<boolean> {
-  const cookieStore = await cookies();
-  const cookieValue = cookieStore.get(CSRF_COOKIE)?.value;
+  // Parse the csrf cookie directly from the request headers to avoid any
+  // mismatch between next/headers cookies() and the actual request context.
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookieValue = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${CSRF_COOKIE}=`))
+    ?.slice(CSRF_COOKIE.length + 1);
+
   const headerValue = request.headers.get(CSRF_HEADER);
 
   if (!cookieValue || !headerValue) return false;
 
   try {
-    // Timing-safe comparison to prevent timing attacks
-    const a = Buffer.from(cookieValue);
+    const a = Buffer.from(decodeURIComponent(cookieValue));
     const b = Buffer.from(headerValue);
     if (a.length !== b.length) return false;
     return timingSafeEqual(a, b);

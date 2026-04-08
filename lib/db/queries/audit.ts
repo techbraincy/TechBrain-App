@@ -15,6 +15,7 @@ export type AuditAction =
   | "create_user"
   | "delete_user"
   | "reset_password"
+  | "update_user_permissions"
   | "create_sheet"
   | "delete_sheet"
   | "assign_sheet"

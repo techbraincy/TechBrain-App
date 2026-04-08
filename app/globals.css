@@ -2,50 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Font ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --surface-app:    #f0f2f9;
+  --surface-card:   #ffffff;
+  --surface-subtle: #f4f6fb;
+  --surface-input:  #f8f9fd;
+  --border:         #e3e7f0;
+  --border-strong:  #cdd3e8;
+  --text-1:         #0f1117;
+  --text-2:         #374151;
+  --text-3:         #6b7280;
+  --text-4:         #9ca3af;
+  --shadow-xs:      0 1px 2px rgba(15,17,23,0.04);
+  --shadow-sm:      0 1px 3px rgba(15,17,23,0.04), 0 4px 12px rgba(15,17,23,0.05);
+  --shadow-md:      0 2px 8px rgba(15,17,23,0.06), 0 8px 24px rgba(15,17,23,0.07);
+  --shadow-lg:      0 4px 16px rgba(15,17,23,0.08), 0 16px 48px rgba(15,17,23,0.1);
+  --shadow-xl:      0 8px 32px rgba(15,17,23,0.10), 0 24px 64px rgba(15,17,23,0.12);
+  --brand:          linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+}
+
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
 body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #020617;
-  color: #f1f5f9;
+  background-color: var(--surface-app);
+  color: var(--text-1);
 }
 
-/* ── Scrollbar ─────────────────────────────────── */
-::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: #334155; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-thumb  { background: #c8d0e0; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #a3afc8; }
 
-/* ── Focus ─────────────────────────────────────── */
 *:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid #7c3aed;
   outline-offset: 2px;
   border-radius: 6px;
 }
 
-/* ── Shimmer (loading skeleton) ─────────────────── */
+/* ═══════════════════════════════════════════════
+   SHIMMER — light mode
+═══════════════════════════════════════════════ */
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    #1e293b 0%,
-    #334155 50%,
-    #1e293b 100%
-  );
+  background: linear-gradient(90deg, #edf0f8 0%, #e2e7f2 50%, #edf0f8 100%);
   background-size: 200% 100%;
   animation: shimmer 1.8s linear infinite;
 }
 
-/* ── Input autofill override ────────────────────── */
+/* ═══════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════ */
+.gradient-text {
+  background: var(--brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════════════════════════════════════
+   INPUT AUTOFILL
+═══════════════════════════════════════════════ */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
-  -webkit-text-fill-color: #f1f5f9 !important;
-  caret-color: #f1f5f9;
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-input) inset !important;
+  -webkit-text-fill-color: var(--text-1) !important;
+  caret-color: var(--text-1);
 }
 
-/* ── Sidebar active highlight glow ─────────────── */
+/* ═══════════════════════════════════════════════
+   NAV ACTIVE GLOW
+═══════════════════════════════════════════════ */
 .nav-active {
   position: relative;
 }
@@ -57,6 +90,140 @@ input:-webkit-autofill:focus {
   transform: translateY(-50%);
   width: 3px;
   height: 60%;
-  background: #6366f1;
+  background: var(--brand);
   border-radius: 0 9999px 9999px 0;
+}
+
+/* ═══════════════════════════════════════════════
+   LIGHT MODE — GLOBAL COLOR REMAPPING
+   Overrides Tailwind dark slate classes.
+   Rules after @tailwind utilities win at equal specificity.
+═══════════════════════════════════════════════ */
+
+/* ── Surfaces ─────────────────────────────────── */
+.bg-slate-950 { background-color: var(--surface-app); }
+.bg-slate-900 { background-color: var(--surface-card); box-shadow: var(--shadow-sm); }
+.bg-slate-800 { background-color: var(--surface-subtle); box-shadow: none; }
+.bg-slate-900\/50 { background-color: rgba(255,255,255,0.6); box-shadow: none; }
+.bg-slate-900\/80 { background-color: rgba(255,255,255,0.8); box-shadow: none; }
+.bg-slate-800\/30 { background-color: rgba(244,246,251,0.3); }
+.bg-slate-800\/40 { background-color: rgba(244,246,251,0.4); }
+.bg-slate-800\/50 { background-color: rgba(244,246,251,0.5); }
+.bg-slate-800\/60 { background-color: rgba(244,246,251,0.7); }
+.bg-slate-800\/70 { background-color: rgba(244,246,251,0.8); }
+.bg-slate-700    { background-color: #dde2ee; }
+.bg-slate-700\/50 { background-color: rgba(221,226,238,0.5); }
+
+/* ── Hover surfaces ───────────────────────────── */
+.hover\:bg-slate-800\/60:hover { background-color: rgba(244,246,251,0.8); }
+.hover\:bg-slate-800\/70:hover { background-color: rgba(244,246,251,0.9); }
+.hover\:bg-slate-800:hover     { background-color: var(--surface-subtle); }
+.hover\:bg-slate-800\/30:hover { background-color: rgba(244,246,251,0.3); }
+
+/* ── Borders ──────────────────────────────────── */
+.border-slate-800  { border-color: var(--border); }
+.border-slate-700  { border-color: var(--border-strong); }
+.hover\:border-slate-700:hover { border-color: var(--border-strong); }
+.hover\:border-slate-600:hover { border-color: #a3afc8; }
+.focus\:border-slate-600:focus { border-color: #7c3aed; }
+.divide-slate-800 > * + * { border-color: var(--border); }
+.divide-slate-800\/50 > * + * { border-color: rgba(227,231,240,0.5); }
+
+/* ── Text ─────────────────────────────────────── */
+.text-slate-100 { color: var(--text-1); }
+.text-slate-200 { color: var(--text-1); }
+.text-slate-300 { color: var(--text-2); }
+.text-slate-400 { color: var(--text-3); }
+.text-slate-500 { color: var(--text-3); }
+.text-slate-600 { color: var(--text-4); }
+.text-slate-700 { color: var(--text-4); }
+
+/* ── Hover text ───────────────────────────────── */
+.hover\:text-slate-200:hover { color: var(--text-1); }
+.hover\:text-slate-300:hover { color: var(--text-2); }
+
+/* ── Accent text — darker for contrast on white ── */
+.text-indigo-400  { color: #4f46e5; }
+.text-orange-400  { color: #ea580c; }
+.text-emerald-400 { color: #059669; }
+.text-violet-400  { color: #7c3aed; }
+.text-green-400   { color: #16a34a; }
+.text-red-400     { color: #dc2626; }
+.text-blue-400    { color: #2563eb; }
+
+/* ── Accent backgrounds ───────────────────────── */
+.bg-indigo-500\/10  { background-color: #eef2ff; }
+.bg-indigo-500\/8   { background-color: #f0f4ff; }
+.bg-indigo-500\/30  { background-color: #c7d2fe; }
+.bg-indigo-600\/15  { background-color: #eef2ff; }
+.bg-indigo-600\/20  { background-color: #e0e7ff; }
+.bg-orange-500\/5   { background-color: #fff8f3; }
+.bg-orange-500\/8   { background-color: #fff7ed; }
+.bg-orange-500\/10  { background-color: #fff7ed; }
+.bg-orange-500\/15  { background-color: #ffedd5; }
+.bg-orange-500\/20  { background-color: #ffedd5; }
+.bg-emerald-500\/8  { background-color: #f0fdf9; }
+.bg-emerald-500\/10 { background-color: #ecfdf5; }
+.bg-violet-500\/8   { background-color: #f8f5ff; }
+.bg-violet-500\/10  { background-color: #f5f3ff; }
+.bg-violet-600\/20  { background-color: #ede9fe; }
+.bg-green-500\/10   { background-color: #f0fdf4; }
+.bg-green-600\/20   { background-color: #dcfce7; }
+.bg-green-600\/30   { background-color: #bbf7d0; }
+.bg-red-500\/10     { background-color: #fef2f2; }
+.bg-blue-500\/10    { background-color: #eff6ff; }
+
+/* ── Hover accent bg ──────────────────────────── */
+.hover\:bg-green-600\/30:hover  { background-color: #bbf7d0; }
+.hover\:bg-indigo-600\/30:hover { background-color: #e0e7ff; }
+.hover\:bg-red-500\/10:hover    { background-color: #fee2e2; }
+
+/* ── Accent borders ───────────────────────────── */
+.border-indigo-500\/20  { border-color: #c7d2fe; }
+.border-indigo-500\/25  { border-color: #a5b4fc; }
+.border-indigo-500\/30  { border-color: #a5b4fc; }
+.border-indigo-500\/50  { border-color: #818cf8; }
+.border-orange-500\/15  { border-color: #fed7aa; }
+.border-orange-500\/20  { border-color: #fed7aa; }
+.border-orange-500\/25  { border-color: #fdba74; }
+.border-orange-500\/30  { border-color: #fdba74; }
+.border-orange-500\/40  { border-color: #fb923c; }
+.border-orange-500\/50  { border-color: #f97316; }
+.border-emerald-500\/20 { border-color: #a7f3d0; }
+.border-emerald-500\/25 { border-color: #6ee7b7; }
+.border-emerald-500\/40 { border-color: #34d399; }
+.border-violet-500\/20  { border-color: #ddd6fe; }
+.border-green-500\/25   { border-color: #86efac; }
+.border-green-500\/30   { border-color: #86efac; }
+.border-green-500\/40   { border-color: #4ade80; }
+.border-green-500\/50   { border-color: #22c55e; }
+.border-red-500\/20     { border-color: #fecaca; }
+.border-red-500\/25     { border-color: #fca5a5; }
+.border-indigo-500\/20  { border-color: #c7d2fe; }
+
+/* ── Hover accent borders ─────────────────────── */
+.hover\:border-indigo-500\/50:hover  { border-color: #818cf8; }
+.hover\:border-orange-500\/50:hover  { border-color: #f97316; }
+.hover\:border-green-500\/50:hover   { border-color: #22c55e; }
+.hover\:border-emerald-500\/40:hover { border-color: #34d399; }
+.hover\:border-indigo-500\/30:hover  { border-color: #a5b4fc; }
+.group:hover .group-hover\:border-indigo-500\/30 { border-color: #a5b4fc; }
+
+/* ── Fix white text on light tooltip bg ───────── */
+.bg-slate-700.text-white,
+[class*="bg-slate-700"] .text-white {
+  color: var(--text-1);
+}
+
+/* ═══════════════════════════════════════════════
+   PRINT
+═══════════════════════════════════════════════ */
+@media print {
+  @page { margin: 1.5cm; }
+  body { background: white !important; color: black !important; font-size: 11pt; }
+  [data-print-hide], .no-print { display: none !important; }
+  .space-y-3 > *, .space-y-2 > * { break-inside: avoid; }
+  main { padding-left: 0 !important; padding-top: 0 !important; width: 100% !important; }
+  aside { display: none !important; }
+  * { box-shadow: none !important; }
 }

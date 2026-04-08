@@ -1,29 +1,21 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/layouts/sidebar";
+import PageTransition from "@/components/layouts/page-transition";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const h = await headers();
-  const role = h.get("x-user-role");
+  const h        = await headers();
+  const role     = h.get("x-user-role");
   const username = h.get("x-username") ?? "admin";
-  const accountType = h.get("x-account-type") || null;
 
-  // Extra guard in addition to proxy
-  if (role !== "superadmin") {
-    redirect("/dashboard");
-  }
+  if (role !== "superadmin") redirect("/dashboard");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-950">
-      <Sidebar
-        username={username}
-        role="superadmin"
-        accountType={accountType}
-        hasSheets={true}
-      />
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-8 py-8">
-          {children}
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar username={username} role="superadmin" accountType={null} hasSheets={true} permissions={null} />
+      <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
     </div>

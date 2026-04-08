@@ -1,7 +1,8 @@
 import { getSupabaseServer } from "@/lib/db/supabase-server";
-import type { User, UserRow } from "@/types/db";
+import type { User, UserRow, Permissions } from "@/types/db";
 
-const USER_FIELDS = "id, username, role, account_type, created_at, updated_at";
+const USER_FIELDS = "id, username, role, account_type, tenant_id, permissions, created_at, updated_at";
+const USER_FIELDS_NO_PERMS = "id, username, role, account_type, tenant_id, created_at, updated_at";
 
 export async function getUserByUsername(username: string): Promise<UserRow | null> {
   const supabase = getSupabaseServer();
@@ -21,8 +22,31 @@ export async function getUserById(id: string): Promise<User | null> {
     .select(USER_FIELDS)
     .eq("id", id)
     .single();
+
+  // If permissions column doesn't exist yet, fall back
+  if (error?.code === "42703") {
+    const fallback = await supabase
+      .from("users")
+      .select(USER_FIELDS_NO_PERMS)
+      .eq("id", id)
+      .single();
+    if (fallback.error || !fallback.data) return null;
+    return { ...(fallback.data as User), permissions: null };
+  }
+
   if (error || !data) return null;
   return data as User;
+}
+
+export async function getUserPermissions(id: string): Promise<Permissions | null> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from("users")
+    .select("permissions")
+    .eq("id", id)
+    .single();
+  if (error || !data) return null;
+  return (data as any).permissions ?? null;
 }
 
 export async function getAllUsers(): Promise<User[]> {
@@ -31,6 +55,17 @@ export async function getAllUsers(): Promise<User[]> {
     .from("users")
     .select(USER_FIELDS)
     .order("created_at", { ascending: false });
+
+  if (error?.code === "42703") {
+    // permissions column doesn't exist — fall back
+    const fallback = await supabase
+      .from("users")
+      .select(USER_FIELDS_NO_PERMS)
+      .order("created_at", { ascending: false });
+    if (fallback.error || !fallback.data) return [];
+    return (fallback.data as User[]).map((u) => ({ ...u, permissions: null }));
+  }
+
   if (error || !data) return [];
   return data as User[];
 }
@@ -39,14 +74,27 @@ export async function createUser(
   username: string,
   passwordHash: string,
   role: "user" | "superadmin",
-  accountType?: "caffe" | "restaurant" | null
+  accountType?: "caffe" | "restaurant" | null,
+  permissions?: Permissions | null
 ): Promise<User> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from("users")
-    .insert({ username, password_hash: passwordHash, role, account_type: accountType ?? null })
+    .insert({ username, password_hash: passwordHash, role, account_type: accountType ?? null, permissions: permissions ?? null })
     .select(USER_FIELDS)
     .single();
+
+  if (error?.code === "42703") {
+    // permissions column doesn't exist yet — insert without it
+    const fallback = await supabase
+      .from("users")
+      .insert({ username, password_hash: passwordHash, role, account_type: accountType ?? null })
+      .select(USER_FIELDS_NO_PERMS)
+      .single();
+    if (fallback.error || !fallback.data) throw new Error(fallback.error?.message ?? "Failed to create user");
+    return { ...(fallback.data as User), permissions: permissions ?? null };
+  }
+
   if (error || !data) throw new Error(error?.message ?? "Failed to create user");
   return data as User;
 }
