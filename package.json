@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@supabase/supabase-js": "^2.43.4",
     "@upstash/ratelimit": "^1.2.1",
     "@upstash/redis": "^1.31.3",
@@ -19,6 +20,7 @@
     "react": "^19",
     "react-dom": "^19",
     "tailwind-merge": "^2.3.0",
+    "workbox-webpack-plugin": "^7.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
