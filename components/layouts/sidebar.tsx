@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Coffee, CalendarDays, Sheet, Users,
-  Database, LogOut, Zap, ChevronRight, Menu, X,
+  Database, LogOut, ChevronRight, Menu, X,
   BarChart2, History, UserCircle, Building2,
 } from "lucide-react";
+import Image from "next/image";
 import { useToast } from "@/components/ui/toast";
 import type { FeatureKey, Permissions } from "@/types/db";
 import { resolveAccess } from "@/lib/auth/permissions";
@@ -146,9 +147,7 @@ function SidebarContent({
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100 flex-shrink-0">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 shadow-sm shadow-violet-500/30">
-          <Zap className="w-4 h-4 text-white" />
-        </div>
+        <Image src="/icon-192.png" alt="TechBrain" width={32} height={32} className="rounded-lg" />
         <div>
           <p className="text-sm font-bold text-gray-900 leading-none">TechBrain</p>
           <p className="text-[10px] text-gray-400 mt-0.5 leading-none">Operations</p>
@@ -246,9 +245,7 @@ export default function Sidebar(props: SidebarProps) {
         style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.06)" }}
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-sm">
-            <Zap className="w-3.5 h-3.5 text-white" />
-          </div>
+          <Image src="/icon-192.png" alt="TechBrain" width={28} height={28} className="rounded-lg" />
           <span className="text-sm font-bold text-gray-900">TechBrain</span>
         </div>
         <button
