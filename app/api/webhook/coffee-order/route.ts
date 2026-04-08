@@ -20,13 +20,14 @@ function normaliseSugar(text: string): string {
 }
 
 function buildItemsSummary(coffee_type: string): string {
-  // Split on comma or "and"
-  const parts = coffee_type.split(/,|and/i).map((s) => s.trim()).filter(Boolean);
+  // Split on comma
+  const parts = coffee_type.split(/,/).map((s) => s.trim()).filter(Boolean);
   return parts
     .map((part) => {
       const sugar = normaliseSugar(part);
-      // Strip sugar keywords for clean name
+      // Strip parenthesised sugar notes and sugar keywords for clean name
       const name = part
+        .replace(/\(.*?\)/g, "")
         .replace(/\b(sketo|oligh|metrio|glyko|medium|sweet|very sweet|no sugar|little sugar)\b/gi, "")
         .replace(/\s+/g, " ")
         .trim();
