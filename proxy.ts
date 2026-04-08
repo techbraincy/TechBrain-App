@@ -27,6 +27,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/api/webhook/")) return true;
+  if (/\.(png|jpg|jpeg|ico|svg|webp|gif|webmanifest|js|css|woff2?)$/i.test(pathname)) return true;
   return false;
 }
 
