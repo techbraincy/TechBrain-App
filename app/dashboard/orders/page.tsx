@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Coffee, Clock, Phone, MapPin, CheckCircle2, Trash2,
-  RefreshCw, AlertCircle, Search, Printer, SlidersHorizontal,
+  RefreshCw, AlertCircle, Search, Printer, SlidersHorizontal, Plus,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import NewOrderForm from "@/components/orders/new-order-form";
 
 interface Order {
   id: string;
@@ -148,6 +149,7 @@ export default function OrdersPage() {
   const [search, setSearch]           = useState("");
   const [statusTab, setStatusTab]     = useState<StatusTab>("all");
   const [sort, setSort]               = useState<SortOrder>("newest");
+  const [showNewOrder, setShowNewOrder] = useState(false);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -249,6 +251,12 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
+      {showNewOrder && (
+        <NewOrderForm
+          onSuccess={() => fetchOrders(true)}
+          onClose={() => setShowNewOrder(false)}
+        />
+      )}
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -264,6 +272,14 @@ export default function OrdersPage() {
         </div>
 
         <div className="flex items-center gap-2 no-print">
+          <button
+            onClick={() => setShowNewOrder(true)}
+            className="flex items-center gap-1.5 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all"
+            style={{ background: "linear-gradient(135deg,#f97316,#ea580c)", boxShadow: "0 4px 12px rgba(249,115,22,0.3)" }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Order</span>
+          </button>
           {/* Live pulse */}
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
             <span className="relative flex h-2 w-2">
