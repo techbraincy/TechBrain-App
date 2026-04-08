@@ -5,7 +5,7 @@ import { validateCsrf } from "@/lib/auth/csrf";
 import { resolveAccess, parsePermissionsHeader, parseTenantId } from "@/lib/auth/permissions";
 import { z } from "zod";
 
-const schema = z.object({ status: z.enum(["pending", "done"]) });
+const schema = z.object({ status: z.enum(["pending", "completed"]) });
 
 export async function PATCH(
   req: NextRequest,

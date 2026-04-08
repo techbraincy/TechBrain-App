@@ -14,7 +14,7 @@ interface Order {
   customer_phone: string;
   delivery_address: string;
   caller_id: string;
-  status: "pending" | "done";
+  status: "pending" | "completed";
   created_at: string;
 }
 
@@ -54,7 +54,7 @@ interface OrderCardProps {
 
 function OrderCard({ order, onMarkDone, onRemove, processingId }: OrderCardProps) {
   const isProcessing = processingId === order.id;
-  const isDone = order.status === "done";
+  const isDone = order.status === "completed";
 
   const ActionButton = () =>
     !isDone ? (
@@ -135,7 +135,7 @@ function OrderCard({ order, onMarkDone, onRemove, processingId }: OrderCardProps
   );
 }
 
-type StatusTab = "all" | "pending" | "done";
+type StatusTab = "all" | "pending" | "completed";
 type SortOrder = "newest" | "oldest";
 
 export default function OrdersPage() {
@@ -181,7 +181,7 @@ export default function OrdersPage() {
       const res = await fetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-        body: JSON.stringify({ status: "done" }),
+        body: JSON.stringify({ status: "completed" }),
       });
       if (res.ok) {
         await fetchOrders(true);
@@ -236,15 +236,15 @@ export default function OrdersPage() {
     );
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const doneCount    = orders.filter((o) => o.status === "done").length;
+  const doneCount    = orders.filter((o) => o.status === "completed").length;
 
   const displayedPending = filtered.filter((o) => o.status === "pending");
-  const displayedDone    = filtered.filter((o) => o.status === "done");
+  const displayedDone    = filtered.filter((o) => o.status === "completed");
 
   const TABS: { key: StatusTab; label: string; count: number }[] = [
     { key: "all",     label: "All",     count: orders.length },
     { key: "pending", label: "Pending", count: pendingCount  },
-    { key: "done",    label: "Done",    count: doneCount     },
+    { key: "completed", label: "Done", count: doneCount },
   ];
 
   return (
@@ -384,7 +384,7 @@ export default function OrdersPage() {
           )}
 
           {/* Done */}
-          {(statusTab === "all" || statusTab === "done") && displayedDone.length > 0 && (
+          {(statusTab === "all" || statusTab === "completed") && displayedDone.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Completed</h2>
@@ -401,7 +401,7 @@ export default function OrdersPage() {
           )}
 
           {/* Done empty when filtered */}
-          {statusTab === "done" && displayedDone.length === 0 && (
+          {statusTab === "completed" && displayedDone.length === 0 && (
             <div className="bg-white border border-dashed border-gray-200 rounded-2xl">
               <EmptyState icon={CheckCircle2} title="No completed orders" description={search ? `No completed orders match "${search}"` : "Completed orders will appear here."} />
             </div>
