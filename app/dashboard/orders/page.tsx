@@ -186,10 +186,11 @@ export default function OrdersPage() {
       if (res.ok) {
         await fetchOrders(true);
       } else {
-        setError("Failed to mark order as done. Please try again.");
+        const body = await res.json().catch(() => ({}));
+        setError(`Mark done failed (${res.status}): ${body.error ?? "unknown error"}`);
       }
-    } catch {
-      setError("Network error.");
+    } catch (e) {
+      setError(`Network error: ${e}`);
     } finally {
       setProcessingId(null);
     }
@@ -206,10 +207,11 @@ export default function OrdersPage() {
       if (res.ok) {
         setOrders((prev) => prev.filter((o) => o.id !== id));
       } else {
-        setError("Failed to remove order.");
+        const body = await res.json().catch(() => ({}));
+        setError(`Remove failed (${res.status}): ${body.error ?? "unknown error"}`);
       }
-    } catch {
-      setError("Network error.");
+    } catch (e) {
+      setError(`Network error: ${e}`);
     } finally {
       setProcessingId(null);
     }
