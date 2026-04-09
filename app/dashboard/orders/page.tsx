@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Coffee, Clock, Phone, MapPin, CheckCircle2, Trash2,
   RefreshCw, AlertCircle, Search, Printer, SlidersHorizontal, Plus,
@@ -170,10 +170,41 @@ export default function OrdersPage() {
     }
   }, []);
 
+  const esRef = useRef<EventSource | null>(null);
+
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(() => fetchOrders(true), 10_000);
-    return () => clearInterval(interval);
+
+    // SSE real-time: refetch when orders change
+    function connect() {
+      const es = new EventSource("/api/orders/stream");
+      esRef.current = es;
+      es.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          if (d.type === "update") fetchOrders(true);
+        } catch {}
+      };
+      es.onerror = () => {
+        es.close();
+        // Browser will auto-reconnect via the effect re-run on visibility change
+      };
+    }
+    connect();
+
+    // Re-connect when user returns to tab
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders(true);
+        if (!esRef.current || esRef.current.readyState === EventSource.CLOSED) connect();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      esRef.current?.close();
+    };
   }, [fetchOrders]);
 
   const markDone = async (id: string) => {
@@ -239,6 +270,12 @@ export default function OrdersPage() {
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
   const doneCount    = orders.filter((o) => o.status === "completed").length;
+
+  const todayStr     = new Date().toISOString().split("T")[0];
+  const todayOrders  = orders.filter((o) => o.created_at.startsWith(todayStr));
+  const todayTotal   = todayOrders.length;
+  const todayPending = todayOrders.filter((o) => o.status === "pending").length;
+  const todayDone    = todayOrders.filter((o) => o.status === "completed").length;
 
   const displayedPending = filtered.filter((o) => o.status === "pending");
   const displayedDone    = filtered.filter((o) => o.status === "completed");
@@ -313,6 +350,24 @@ export default function OrdersPage() {
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {/* Daily summary */}
+      {!loading && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-center">
+            <p className="text-2xl font-black text-gray-900">{todayTotal}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Today</p>
+          </div>
+          <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-center">
+            <p className="text-2xl font-black text-orange-600">{todayPending}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Pending</p>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
+            <p className="text-2xl font-black text-green-600">{todayDone}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Completed</p>
+          </div>
         </div>
       )}
 
