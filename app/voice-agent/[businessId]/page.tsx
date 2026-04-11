@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   Edit3, Mic2, Sliders, CheckCircle2, AlertCircle, Clock, Zap,
   Phone, MapPin, Globe, CalendarDays, Package, Bike, Coffee,
-  ChevronRight, ExternalLink, ArrowLeft, RefreshCw
+  ChevronRight, ExternalLink, ArrowLeft, RefreshCw, BarChart2, Share2
 } from "lucide-react";
 import { getBusinessById } from "@/lib/db/queries/businesses";
 import { BUSINESS_CATEGORIES } from "@/types/agent";
@@ -206,10 +206,40 @@ export default async function BusinessPage({ params }: Params) {
         </div>
       )}
 
+      {/* Portal link */}
+      {(business.delivery_enabled || business.takeaway_enabled || business.reservation_enabled || business.meetings_enabled) && (
+        <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center flex-shrink-0">
+            <Share2 className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">Customer Portal</p>
+            <p className="text-xs text-gray-500 mt-0.5">Share this link with customers to receive orders and reservations</p>
+          </div>
+          <a
+            href={`/portal/${business.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Open
+          </a>
+        </div>
+      )}
+
       {/* Navigation cards */}
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Manage</h2>
         <div className="grid sm:grid-cols-2 gap-3">
+          {(business.delivery_enabled || business.takeaway_enabled || business.reservation_enabled || business.meetings_enabled) && (
+            <NavCard
+              href={`/voice-agent/${business.id}/orders`}
+              icon={BarChart2}
+              label="Live Dashboard"
+              desc="Real-time orders and reservations"
+              color="bg-orange-50 border border-orange-100 text-orange-600"
+            />
+          )}
           <NavCard
             href={`/voice-agent/${business.id}/profile`}
             icon={Edit3}
