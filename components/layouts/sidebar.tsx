@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Coffee, CalendarDays, Sheet, Users,
   Database, LogOut, ChevronRight, Menu, X,
-  BarChart2, History, UserCircle, Building2,
+  BarChart2, History, UserCircle, Building2, Mic2,
 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/components/ui/toast";
@@ -179,6 +179,11 @@ function SidebarContent({
             {showSheets       && <NavLink item={{ label: "Sheets",       href: "/dashboard/sheets",       icon: Sheet }}      onClick={onNavClick} />}
           </div>
         )}
+
+        <div className="space-y-0.5">
+          <SectionLabel>AI Voice</SectionLabel>
+          <NavLink item={{ label: "Voice Agents", href: "/voice-agent", icon: Mic2, exact: false }} onClick={onNavClick} />
+        </div>
 
         {role === "superadmin" && (
           <div className="space-y-0.5">
