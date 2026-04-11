@@ -164,35 +164,9 @@ function SidebarContent({
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
         <div className="space-y-0.5">
-          <SectionLabel>Main</SectionLabel>
-          <NavLink item={{ label: "Overview", href: "/dashboard", icon: LayoutDashboard, exact: true }} onClick={onNavClick} />
-        </div>
-
-        {(showOrders || showReservations || showAnalytics || showCalendar || showSheets) && (
-          <div className="space-y-0.5">
-            <SectionLabel>Operations</SectionLabel>
-            {showOrders       && <NavLink item={{ label: "Orders",       href: "/dashboard/orders",       icon: Coffee,       badge: pendingCount }} onClick={onNavClick} />}
-            {showAnalytics    && <NavLink item={{ label: "Analytics",    href: "/dashboard/analytics",    icon: BarChart2 }}  onClick={onNavClick} />}
-            {showReservations && <NavLink item={{ label: "Reservations", href: "/dashboard/reservations", icon: CalendarDays }} onClick={onNavClick} />}
-            {showCalendar     && <NavLink item={{ label: "Calendar",     href: "/dashboard/calendar",     icon: CalendarDays }} onClick={onNavClick} />}
-            {showHistory      && <NavLink item={{ label: "History",      href: "/dashboard/history",      icon: History }}    onClick={onNavClick} />}
-            {showSheets       && <NavLink item={{ label: "Sheets",       href: "/dashboard/sheets",       icon: Sheet }}      onClick={onNavClick} />}
-          </div>
-        )}
-
-        <div className="space-y-0.5">
           <SectionLabel>AI Voice</SectionLabel>
           <NavLink item={{ label: "Voice Agents", href: "/voice-agent", icon: Mic2, exact: false }} onClick={onNavClick} />
         </div>
-
-        {role === "superadmin" && (
-          <div className="space-y-0.5">
-            <SectionLabel>Admin</SectionLabel>
-            <NavLink item={{ label: "Users",          href: "/admin",          icon: Users,      exact: true }} onClick={onNavClick} />
-            <NavLink item={{ label: "Tenants",        href: "/admin/tenants",  icon: Building2 }}             onClick={onNavClick} />
-            <NavLink item={{ label: "Sheet Registry", href: "/admin/sheets",   icon: Database }}              onClick={onNavClick} />
-          </div>
-        )}
       </nav>
 
       {/* User section */}
