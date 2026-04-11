@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth/session";
 import LoginForm from "@/components/auth/login-form";
@@ -52,12 +51,6 @@ export default async function LoginPage({
             <p className="text-sm text-gray-500 mt-1">Sign in to your workspace to continue</p>
           </div>
           <LoginForm next={next} />
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Not registered yet?{" "}
-            <Link href="/register" className="font-semibold text-violet-600 hover:text-violet-700 transition-colors">
-              Create an account
-            </Link>
-          </p>
         </div>
 
         <p className="text-center text-xs text-white/30 mt-6">
