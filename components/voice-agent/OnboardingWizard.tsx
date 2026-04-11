@@ -13,6 +13,8 @@ import type {
 import {
   BUSINESS_CATEGORIES, DEFAULT_OPENING_HOURS,
 } from "@/types/agent";
+import PhoneInput from "@/components/voice-agent/PhoneInput";
+import LocationPickerInput from "@/components/voice-agent/LocationPickerInput";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -202,13 +204,13 @@ function Step1({ data, onChange, errors }: {
       />
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <Input
-          label="Phone Number"
-          value={data.phone_number}
-          onChange={(v) => onChange("phone_number", v)}
-          placeholder="+30 210 1234567"
-          type="tel"
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
+          <PhoneInput
+            value={data.phone_number}
+            onChange={(v) => onChange("phone_number", v)}
+          />
+        </div>
         <Input
           label="Address"
           value={data.address}
@@ -217,13 +219,14 @@ function Step1({ data, onChange, errors }: {
         />
       </div>
 
-      <Input
-        label="Google Maps Link"
-        value={data.google_maps_link}
-        onChange={(v) => onChange("google_maps_link", v)}
-        placeholder="https://maps.google.com/..."
-        hint="Paste the Google Maps link or place URL for your business"
-      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Location</label>
+        <LocationPickerInput
+          value={data.google_maps_link}
+          onChange={(v) => onChange("google_maps_link", v)}
+          businessName={data.business_name}
+        />
+      </div>
     </div>
   );
 }

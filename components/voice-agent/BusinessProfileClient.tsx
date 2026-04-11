@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Save, Check, Plus, Trash2 } from "lucide-react";
 import type { BusinessWithAgent, DayOfWeek, DayHours, ServiceItem, FAQItem } from "@/types/agent";
 import { BUSINESS_CATEGORIES, DEFAULT_OPENING_HOURS } from "@/types/agent";
+import PhoneInput from "@/components/voice-agent/PhoneInput";
+import LocationPickerInput from "@/components/voice-agent/LocationPickerInput";
 
 const DAYS: { key: DayOfWeek; label: string }[] = [
   { key: "monday",    label: "Monday" },
@@ -215,10 +217,12 @@ export default function BusinessProfileClient({ business }: Props) {
           <Input value={name} onChange={setName} placeholder="Café Kosta" />
         </Field>
         <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Phone Number"><Input value={phone} onChange={setPhone} placeholder="+30 210..." type="tel" /></Field>
+          <Field label="Phone Number"><PhoneInput value={phone} onChange={setPhone} /></Field>
           <Field label="Address"><Input value={address} onChange={setAddress} placeholder="123 Main St, Athens" /></Field>
         </div>
-        <Field label="Google Maps Link"><Input value={mapsLink} onChange={setMapsLink} placeholder="https://maps.google.com/..." /></Field>
+        <Field label="Location">
+          <LocationPickerInput value={mapsLink} onChange={setMapsLink} businessName={name} />
+        </Field>
         <Field label="Service Area (for delivery)"><Input value={area} onChange={setArea} placeholder="e.g. Central Athens, up to 5km" /></Field>
       </Section>
 
