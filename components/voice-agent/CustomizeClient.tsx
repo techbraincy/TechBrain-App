@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Check, Plus, Trash2, Palette, Settings2, ShieldAlert, Lock } from "lucide-react";
-import type { BusinessWithAgent, EscalationRules, WorkflowSettings, CustomPermissions, BrandingSettings } from "@/types/agent";
+import { Save, Check, Plus, Trash2, Palette, Settings2, ShieldAlert, Lock, Type, Zap } from "lucide-react";
+import type {
+  BusinessWithAgent, EscalationRules, WorkflowSettings, CustomPermissions,
+  BrandingSettings, ThemeSettings,
+} from "@/types/agent";
 import {
-  DEFAULT_ESCALATION_RULES, DEFAULT_BRANDING, DEFAULT_WORKFLOW, DEFAULT_PERMISSIONS,
+  DEFAULT_ESCALATION_RULES, DEFAULT_BRANDING, DEFAULT_WORKFLOW,
+  DEFAULT_PERMISSIONS, DEFAULT_THEME,
 } from "@/types/agent";
 
 function cn(...c: (string | boolean | undefined)[]) { return c.filter(Boolean).join(" "); }
@@ -107,6 +111,62 @@ function TagList({ items, onAdd, onRemove, placeholder }: {
   );
 }
 
+// ── Pill selector ──────────────────────────────────────────────────────────────
+function PillSelect<T extends string>({ options, value, onChange }: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "px-3.5 py-1.5 text-sm rounded-xl border transition-all font-medium",
+            value === o.value
+              ? "bg-violet-600 text-white border-violet-600"
+              : "bg-white text-gray-600 border-gray-200 hover:border-violet-300"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const FONT_OPTIONS = [
+  { value: "inter",      label: "Inter (default)" },
+  { value: "roboto",     label: "Roboto" },
+  { value: "poppins",    label: "Poppins" },
+  { value: "montserrat", label: "Montserrat" },
+  { value: "lato",       label: "Lato" },
+] as const;
+
+const RADIUS_OPTIONS = [
+  { value: "sm", label: "Sharp" },
+  { value: "md", label: "Rounded" },
+  { value: "lg", label: "Pill" },
+] as const;
+
+// ── Color field helper ─────────────────────────────────────────────────────────
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+          className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5 flex-shrink-0" />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400"
+          placeholder="#8B5CF6" />
+      </div>
+    </Field>
+  );
+}
+
 interface Props { business: BusinessWithAgent }
 
 export default function CustomizeClient({ business }: Props) {
@@ -116,6 +176,12 @@ export default function CustomizeClient({ business }: Props) {
   const [branding, setBranding] = useState<BrandingSettings>({
     ...DEFAULT_BRANDING,
     ...(business.branding_settings ?? {}),
+  });
+
+  // Theme
+  const [theme, setTheme] = useState<ThemeSettings>({
+    ...DEFAULT_THEME,
+    ...(business.theme_settings ?? {}),
   });
 
   // Escalation
@@ -140,8 +206,11 @@ export default function CustomizeClient({ business }: Props) {
   const [saved,  setSaved]  = useState(false);
   const [error,  setError]  = useState("");
 
-  function updateBranding(key: keyof BrandingSettings, val: string | null) {
+  function updateBranding<K extends keyof BrandingSettings>(key: K, val: BrandingSettings[K]) {
     setBranding((b) => ({ ...b, [key]: val }));
+  }
+  function updateTheme<K extends keyof ThemeSettings>(key: K, val: ThemeSettings[K]) {
+    setTheme((t) => ({ ...t, [key]: val }));
   }
   function updateEsc(key: keyof EscalationRules, val: unknown) {
     setEscalation((e) => ({ ...e, [key]: val }));
@@ -162,6 +231,7 @@ export default function CustomizeClient({ business }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branding_settings:  branding,
+          theme_settings:     theme,
           escalation_rules:   escalation,
           workflow_settings:  workflow,
           custom_permissions: perms,
@@ -183,46 +253,99 @@ export default function CustomizeClient({ business }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Branding */}
-      <Section title="Branding" icon={Palette}>
+
+      {/* ── Branding ─────────────────────────────────────────────────────────── */}
+      <Section title="Branding & Portal" icon={Palette}>
+        {/* Colors */}
         <div className="grid sm:grid-cols-3 gap-4">
-          <Field label="Primary Color">
-            <div className="flex items-center gap-2">
-              <input type="color" value={branding.primary_color} onChange={(e) => updateBranding("primary_color", e.target.value)}
-                className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-              <input type="text" value={branding.primary_color} onChange={(e) => updateBranding("primary_color", e.target.value)}
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" placeholder="#8B5CF6" />
-            </div>
-          </Field>
-          <Field label="Secondary Color">
-            <div className="flex items-center gap-2">
-              <input type="color" value={branding.secondary_color} onChange={(e) => updateBranding("secondary_color", e.target.value)}
-                className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-              <input type="text" value={branding.secondary_color} onChange={(e) => updateBranding("secondary_color", e.target.value)}
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" placeholder="#6366F1" />
-            </div>
-          </Field>
-          <Field label="Accent Color">
-            <div className="flex items-center gap-2">
-              <input type="color" value={branding.accent_color} onChange={(e) => updateBranding("accent_color", e.target.value)}
-                className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-              <input type="text" value={branding.accent_color} onChange={(e) => updateBranding("accent_color", e.target.value)}
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" placeholder="#F59E0B" />
-            </div>
-          </Field>
+          <ColorField label="Primary Color" value={branding.primary_color} onChange={(v) => updateBranding("primary_color", v)} />
+          <ColorField label="Secondary Color" value={branding.secondary_color} onChange={(v) => updateBranding("secondary_color", v)} />
+          <ColorField label="Accent Color" value={branding.accent_color} onChange={(v) => updateBranding("accent_color", v)} />
         </div>
+
         {/* Color preview */}
         <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50">
           <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: branding.primary_color }} />
           <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: branding.secondary_color }} />
           <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: branding.accent_color }} />
-          <p className="text-xs text-gray-400">Preview of your brand colors</p>
+          <p className="text-xs text-gray-400">Primary · Secondary · Accent</p>
+        </div>
+
+        {/* Logo */}
+        <Field label="Logo URL" hint="Paste a public image URL (PNG/SVG/WebP). Shown in portal header and order tracking.">
+          <Input
+            value={branding.logo_url ?? ""}
+            onChange={(v) => updateBranding("logo_url", v || null)}
+            placeholder="https://your-cdn.com/logo.png"
+          />
+        </Field>
+
+        {/* Logo preview */}
+        {branding.logo_url && (
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={branding.logo_url} alt="Logo preview" className="h-10 w-auto max-w-[160px] object-contain rounded" />
+            <p className="text-xs text-gray-400">Logo preview</p>
+          </div>
+        )}
+
+        {/* Portal tagline */}
+        <Field label="Portal tagline" hint="Short tagline shown under your business name in the customer portal.">
+          <Input
+            value={branding.portal_tagline ?? ""}
+            onChange={(v) => updateBranding("portal_tagline", v || null)}
+            placeholder="e.g. Fresh food, fast delivery"
+          />
+        </Field>
+
+        {/* Footer */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Portal footer text" hint="Replaces the default footer line.">
+            <Input
+              value={branding.portal_footer_text ?? ""}
+              onChange={(v) => updateBranding("portal_footer_text", v || null)}
+              placeholder="e.g. © 2025 My Café"
+            />
+          </Field>
+          <div className="flex flex-col justify-end pb-0.5">
+            <Toggle
+              label="Show 'Powered by TechBrain AI'"
+              desc="Display TechBrain branding in portal footer"
+              checked={branding.show_powered_by ?? true}
+              onChange={(v) => updateBranding("show_powered_by", v)}
+            />
+          </div>
         </div>
       </Section>
 
-      {/* Workflow */}
+      {/* ── Theme ────────────────────────────────────────────────────────────── */}
+      <Section title="Theme & Appearance" icon={Type}>
+        <Field label="Font family" hint="Applied to the customer portal and order tracking page.">
+          <PillSelect
+            options={FONT_OPTIONS as unknown as { value: string; label: string }[]}
+            value={theme.font}
+            onChange={(v) => updateTheme("font", v)}
+          />
+        </Field>
+
+        <Field label="Corner style" hint="Controls button and card rounding throughout the portal.">
+          <PillSelect
+            options={RADIUS_OPTIONS as unknown as { value: string; label: string }[]}
+            value={theme.radius}
+            onChange={(v) => updateTheme("radius", v as ThemeSettings["radius"])}
+          />
+        </Field>
+      </Section>
+
+      {/* ── Workflow ─────────────────────────────────────────────────────────── */}
       <Section title="Workflow Settings" icon={Settings2}>
         <div className="grid sm:grid-cols-2 gap-4">
+          <Toggle
+            label="Auto-accept orders"
+            desc="Skip staff approval — orders go straight to 'Accepted'"
+            checked={workflow.auto_accept_orders}
+            onChange={(v) => updateWf("auto_accept_orders", v)}
+          />
           <Toggle
             label="Require booking confirmation"
             desc="Agent always confirms booking details"
@@ -255,6 +378,8 @@ export default function CustomizeClient({ business }: Props) {
         )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <NumberInput label="Avg prep time (min)" value={workflow.avg_prep_time_minutes} onChange={(v) => updateWf("avg_prep_time_minutes", v)} min={1} max={120} />
+          <NumberInput label="Avg delivery time (min)" value={workflow.avg_delivery_time_minutes} onChange={(v) => updateWf("avg_delivery_time_minutes", v)} min={1} max={180} />
           <NumberInput label="Booking lead time (hours)" value={workflow.booking_lead_time_hours} onChange={(v) => updateWf("booking_lead_time_hours", v)} min={0} max={72} />
           <NumberInput label="Max party size" value={workflow.max_party_size} onChange={(v) => updateWf("max_party_size", v)} min={1} max={500} />
           <NumberInput label="Cancellation window (hours)" value={workflow.cancellation_window_hours} onChange={(v) => updateWf("cancellation_window_hours", v)} min={0} max={72} />
@@ -268,7 +393,7 @@ export default function CustomizeClient({ business }: Props) {
         </div>
       </Section>
 
-      {/* Escalation */}
+      {/* ── Escalation ───────────────────────────────────────────────────────── */}
       <Section title="Escalation Rules" icon={ShieldAlert}>
         <div className="grid sm:grid-cols-2 gap-4">
           <Toggle
@@ -311,7 +436,7 @@ export default function CustomizeClient({ business }: Props) {
         </Field>
       </Section>
 
-      {/* Permissions */}
+      {/* ── Permissions ──────────────────────────────────────────────────────── */}
       <Section title="Agent Permissions" icon={Lock}>
         <div className="grid sm:grid-cols-3 gap-4">
           <Toggle label="Can book" checked={perms.can_book} onChange={(v) => updatePerms("can_book", v)} />

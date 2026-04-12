@@ -10,7 +10,7 @@ export default async function TrackOrderPage({ params }: Params) {
   const supabase = getSupabaseServer();
 
   const [bizRes, orderRes] = await Promise.all([
-    supabase.from("businesses").select("business_name, branding_settings, phone_number, address").eq("id", businessId).single(),
+    supabase.from("businesses").select("business_name, branding_settings, theme_settings, phone_number, address").eq("id", businessId).single(),
     supabase.from("business_orders").select("id, customer_name, order_type, items, items_summary, total_amount, status, estimated_ready_at, created_at, accepted_at, completed_at, delivery_address, special_instructions").eq("id", orderId).eq("business_id", businessId).single(),
   ]);
 
@@ -24,7 +24,7 @@ export default async function TrackOrderPage({ params }: Params) {
 
   return (
     <OrderTrackingClient
-      business={bizRes.data as Pick<Business, "business_name" | "branding_settings" | "phone_number" | "address">}
+      business={bizRes.data as Pick<Business, "business_name" | "branding_settings" | "theme_settings" | "phone_number" | "address">}
       order={orderRes.data as any}
       history={history ?? []}
       businessId={businessId}

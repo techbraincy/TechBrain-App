@@ -6,12 +6,42 @@ import {
   CheckCircle2, Phone, MapPin, Clock, ChevronDown, ChevronUp,
   Bike, Package, X
 } from "lucide-react";
-import type { Business, ServiceItem } from "@/types/agent";
+import type { Business, ServiceItem, ThemeSettings } from "@/types/agent";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Theme helpers ─────────────────────────────────────────────────────────────
 function hex(color: string | undefined, fallback = "#7c3aed"): string {
   if (!color || color === "#ffffff" || color === "#fff") return fallback;
   return color;
+}
+
+const FONT_MAP: Record<string, string> = {
+  inter:      "'Inter', system-ui, sans-serif",
+  roboto:     "'Roboto', system-ui, sans-serif",
+  poppins:    "'Poppins', system-ui, sans-serif",
+  montserrat: "'Montserrat', system-ui, sans-serif",
+  lato:       "'Lato', system-ui, sans-serif",
+};
+
+const RADIUS_MAP: Record<string, string> = {
+  sm: "8px",
+  md: "12px",
+  lg: "16px",
+};
+
+function applyTheme(theme: ThemeSettings | undefined) {
+  const font   = FONT_MAP[theme?.font ?? "inter"] ?? FONT_MAP.inter;
+  const radius = RADIUS_MAP[theme?.radius ?? "lg"] ?? RADIUS_MAP.lg;
+  return { font, radius };
+}
+
+// Returns a rounded-* tailwind class based on radius
+function r(radius: string, size: "sm" | "md" | "lg" | "xl" | "2xl" | "full" = "2xl") {
+  const map: Record<string, Record<string, string>> = {
+    "8px":  { sm: "rounded", md: "rounded-md", lg: "rounded-lg", xl: "rounded-lg", "2xl": "rounded-xl", full: "rounded-full" },
+    "12px": { sm: "rounded", md: "rounded-md", lg: "rounded-xl", xl: "rounded-xl", "2xl": "rounded-xl", full: "rounded-full" },
+    "16px": { sm: "rounded", md: "rounded-lg", lg: "rounded-xl", xl: "rounded-2xl","2xl": "rounded-2xl",full: "rounded-full" },
+  };
+  return map[radius]?.[size] ?? "rounded-2xl";
 }
 
 function fmt(price: string) {
@@ -35,7 +65,15 @@ type Tab = "order" | "reservation";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function PortalClient({ business }: { business: Business }) {
-  const primary  = hex(business.branding_settings?.primary_color);
+  const primary   = hex(business.branding_settings?.primary_color);
+  const secondary = hex(business.branding_settings?.secondary_color, primary);
+  const accent    = hex(business.branding_settings?.accent_color, "#F59E0B");
+  const logo      = business.branding_settings?.logo_url;
+  const tagline   = business.branding_settings?.portal_tagline;
+  const footerText = business.branding_settings?.portal_footer_text;
+  const showPoweredBy = business.branding_settings?.show_powered_by ?? true;
+  const { font, radius } = applyTheme(business.theme_settings);
+
   const hasOrder = business.delivery_enabled || business.takeaway_enabled;
   const hasRes   = business.reservation_enabled || business.meetings_enabled;
 
@@ -190,17 +228,26 @@ export default function PortalClient({ business }: { business: Business }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: font, ["--pr" as string]: radius } as React.CSSProperties}>
+      <style>{`[style*="--pr"] .portal-btn{border-radius:var(--pr)}[style*="--pr"] .portal-card{border-radius:var(--pr)}`}</style>
       {/* Header */}
       <div className="sticky top-0 z-20 shadow-sm" style={{ backgroundColor: primary }}>
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-white leading-tight">{business.business_name}</h1>
-            {business.address && (
-              <p className="text-xs text-white/70 flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3 h-3" />{business.address}
-              </p>
+          <div className="flex items-center gap-3 min-w-0">
+            {logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt={business.business_name} className="h-9 w-auto max-w-[100px] object-contain rounded flex-shrink-0" />
             )}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-white leading-tight truncate">{business.business_name}</h1>
+              {tagline ? (
+                <p className="text-xs text-white/80 mt-0.5">{tagline}</p>
+              ) : business.address ? (
+                <p className="text-xs text-white/70 flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3 flex-shrink-0" /><span className="truncate">{business.address}</span>
+                </p>
+              ) : null}
+            </div>
           </div>
           {hasOrder && cartCount > 0 && (
             <button
@@ -247,11 +294,11 @@ export default function PortalClient({ business }: { business: Business }) {
           <>
             {/* Order type toggle */}
             {business.delivery_enabled && business.takeaway_enabled && (
-              <div className="flex gap-2 bg-white border border-gray-200 rounded-2xl p-1.5">
+              <div className="portal-card flex gap-2 bg-white border border-gray-200 rounded-2xl p-1.5">
                 <button
                   type="button"
                   onClick={() => setOrderType("delivery")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`portal-btn flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
                     orderType === "delivery"
                       ? "text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -263,7 +310,7 @@ export default function PortalClient({ business }: { business: Business }) {
                 <button
                   type="button"
                   onClick={() => setOrderType("takeaway")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`portal-btn flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
                     orderType === "takeaway"
                       ? "text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -301,7 +348,7 @@ export default function PortalClient({ business }: { business: Business }) {
                         ? "text-white border-transparent"
                         : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                     }`}
-                    style={activeCategory === cat ? { backgroundColor: primary, borderColor: primary } : {}}
+                    style={activeCategory === cat ? { backgroundColor: secondary, borderColor: secondary } : {}}
                   >
                     {cat}
                   </button>
@@ -315,12 +362,12 @@ export default function PortalClient({ business }: { business: Business }) {
                 {filteredItems.map((item) => {
                   const qty = getQty(item.id);
                   return (
-                    <div key={item.id} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start gap-3"
+                    <div key={item.id} className="portal-card bg-white border border-gray-200 rounded-2xl p-4 flex items-start gap-3"
                          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
                         {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-                        {item.price && <p className="text-sm font-bold mt-1" style={{ color: primary }}>{fmt(item.price)}</p>}
+                        {item.price && <p className="text-sm font-bold mt-1" style={{ color: accent }}>{fmt(item.price)}</p>}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {qty > 0 ? (
@@ -440,7 +487,7 @@ export default function PortalClient({ business }: { business: Business }) {
                             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
                           {oError && <p className="text-xs text-red-500">{oError}</p>}
                           <button type="submit" disabled={oSubmitting}
-                            className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-opacity disabled:opacity-60"
+                            className="portal-btn w-full py-3 rounded-xl text-white font-semibold text-sm transition-opacity disabled:opacity-60"
                             style={{ backgroundColor: primary }}>
                             {oSubmitting ? "Placing order…" : `Place ${orderType} order${cartTotal > 0 ? ` · €${cartTotal.toFixed(2)}` : ""}`}
                           </button>
@@ -532,7 +579,7 @@ export default function PortalClient({ business }: { business: Business }) {
                 </div>
                 {rError && <p className="text-xs text-red-500">{rError}</p>}
                 <button type="submit" disabled={rSubmitting}
-                  className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-opacity disabled:opacity-60"
+                  className="portal-btn w-full py-3 rounded-xl text-white font-semibold text-sm transition-opacity disabled:opacity-60"
                   style={{ backgroundColor: primary }}>
                   {rSubmitting ? "Submitting…" : "Request booking"}
                 </button>
@@ -553,7 +600,12 @@ export default function PortalClient({ business }: { business: Business }) {
               <MapPin className="w-3 h-3" /> {business.address}
             </p>
           )}
-          <p className="pt-1 opacity-50">Powered by TechBrain AI</p>
+          {footerText && (
+            <p className="pt-1">{footerText}</p>
+          )}
+          {showPoweredBy && (
+            <p className={footerText ? "opacity-40" : "pt-1 opacity-50"}>Powered by TechBrain AI</p>
+          )}
         </div>
       </div>
     </div>

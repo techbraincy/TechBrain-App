@@ -64,10 +64,13 @@ export interface EscalationRules {
 }
 
 export interface BrandingSettings {
-  primary_color:   string;  // hex "#8B5CF6"
-  secondary_color: string;
-  accent_color:    string;
-  logo_url:        string | null;
+  primary_color:      string;  // hex "#8B5CF6"
+  secondary_color:    string;
+  accent_color:       string;
+  logo_url:           string | null;
+  portal_tagline:     string | null;  // shown under business name in portal
+  portal_footer_text: string | null;  // replaces "Powered by TechBrain AI"
+  show_powered_by:    boolean;        // whether to show the footer branding at all
 }
 
 export interface ThemeSettings {
@@ -222,10 +225,13 @@ export const DEFAULT_ESCALATION_RULES: EscalationRules = {
 };
 
 export const DEFAULT_BRANDING: BrandingSettings = {
-  primary_color:   "#8B5CF6",
-  secondary_color: "#6366F1",
-  accent_color:    "#F59E0B",
-  logo_url:        null,
+  primary_color:      "#8B5CF6",
+  secondary_color:    "#6366F1",
+  accent_color:       "#F59E0B",
+  logo_url:           null,
+  portal_tagline:     null,
+  portal_footer_text: null,
+  show_powered_by:    true,
 };
 
 export const DEFAULT_THEME: ThemeSettings = {

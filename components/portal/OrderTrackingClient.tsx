@@ -6,7 +6,15 @@ import {
   Phone, MapPin, Utensils, Truck, Star
 } from "lucide-react";
 import Link from "next/link";
-import type { Business } from "@/types/agent";
+import type { Business, ThemeSettings } from "@/types/agent";
+
+const FONT_MAP: Record<string, string> = {
+  inter:      "'Inter', system-ui, sans-serif",
+  roboto:     "'Roboto', system-ui, sans-serif",
+  poppins:    "'Poppins', system-ui, sans-serif",
+  montserrat: "'Montserrat', system-ui, sans-serif",
+  lato:       "'Lato', system-ui, sans-serif",
+};
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const DELIVERY_STEPS = [
@@ -65,7 +73,7 @@ interface Order {
 }
 
 interface Props {
-  business: Pick<Business, "business_name" | "branding_settings" | "phone_number" | "address">;
+  business: Pick<Business, "business_name" | "branding_settings" | "theme_settings" | "phone_number" | "address">;
   order: Order;
   history: HistoryEntry[];
   businessId: string;
@@ -75,7 +83,10 @@ interface Props {
 export default function OrderTrackingClient({ business, order: initialOrder, history: initialHistory, businessId, orderId }: Props) {
   const [order,   setOrder]   = useState(initialOrder);
   const [history, setHistory] = useState(initialHistory);
-  const primary = hex(business.branding_settings?.primary_color);
+  const primary  = hex(business.branding_settings?.primary_color);
+  const logo     = business.branding_settings?.logo_url;
+  const tagline  = business.branding_settings?.portal_tagline;
+  const font     = FONT_MAP[business.theme_settings?.font ?? "inter"] ?? FONT_MAP.inter;
 
   const steps = order.order_type === "delivery" ? DELIVERY_STEPS : TAKEAWAY_STEPS;
   const isRejected  = order.status === "rejected";
@@ -126,15 +137,24 @@ export default function OrderTrackingClient({ business, order: initialOrder, his
   const msg = statusMessage();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: font }}>
       {/* Header */}
       <div className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: primary }}>
         <div className="max-w-lg mx-auto px-4 py-4">
-          <Link href={`/portal/${businessId}`} className="text-white/70 hover:text-white text-xs mb-1 block">
+          <Link href={`/portal/${businessId}`} className="text-white/70 hover:text-white text-xs mb-1 flex items-center gap-1.5">
             ← {business.business_name}
           </Link>
-          <h1 className="text-lg font-bold text-white">Order Tracking</h1>
-          <p className="text-white/60 text-xs font-mono mt-0.5">#{orderId.slice(0, 8).toUpperCase()}</p>
+          <div className="flex items-center gap-3 mt-1">
+            {logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt={business.business_name} className="h-8 w-auto max-w-[80px] object-contain rounded flex-shrink-0" />
+            )}
+            <div>
+              <h1 className="text-lg font-bold text-white">Order Tracking</h1>
+              {tagline && <p className="text-white/70 text-xs">{tagline}</p>}
+            </div>
+          </div>
+          <p className="text-white/60 text-xs font-mono mt-1">#{orderId.slice(0, 8).toUpperCase()}</p>
         </div>
       </div>
 
