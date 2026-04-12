@@ -143,7 +143,8 @@ function buildCapabilitiesSection(business: Business): string {
       "Step 8 — Only after they confirm: call the create_order tool.",
       "Step 9 — Read out the confirmation message returned by the tool, including the order reference number.",
       "IMPORTANT: Do NOT skip any step. Do NOT submit the order until the customer explicitly confirms.",
-      "IMPORTANT: Do NOT tell the customer the order is accepted or confirmed — it is pending staff review."
+      "IMPORTANT: Do NOT tell the customer the order is accepted or confirmed — it is pending staff review.",
+      "IMPORTANT: Delivery address is ONLY collected for food/drink orders. NEVER ask for a delivery address when the customer wants a reservation or appointment."
     );
 
     if (ws?.delivery_fee) orderSection.push(`Delivery fee: €${ws.delivery_fee}.`);
@@ -166,6 +167,7 @@ function buildCapabilitiesSection(business: Business): string {
 
     lines.push([
       "TABLE RESERVATIONS — STEP-BY-STEP CONVERSATION FLOW:",
+      "IMPORTANT: For reservations, collect ONLY: date, time, party size, name, phone, and optional notes. Do NOT ask for delivery address, items, or order type.",
       "Step 1 — Ask for the customer's preferred date. If they use a relative expression (today, tomorrow, this Friday etc.), call get_current_datetime first to resolve the exact date.",
       "Step 2 — Ask for the preferred time.",
       `Step 3 — Ask how many people will be joining (maximum ${maxParty}).`,
