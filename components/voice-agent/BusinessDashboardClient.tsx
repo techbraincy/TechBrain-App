@@ -1,269 +1,600 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  RefreshCw, CheckCircle2, Clock, ChevronDown,
-  Bike, Package, CalendarDays, Phone, Users, FileText,
-  XCircle, AlertCircle
+  Bike, Package, CalendarDays, Phone, Users, Clock,
+  CheckCircle2, XCircle, ChevronRight, RefreshCw, Bell,
+  ArrowLeft, StickyNote, Timer, Star, Truck, Utensils,
+  MoreHorizontal, Copy
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface BusinessOrder {
+export interface BusinessOrder {
   id: string;
   customer_name: string;
   customer_phone: string | null;
+  email: string | null;
   order_type: "delivery" | "takeaway";
-  items: { id: string; name: string; price?: string; quantity: number; notes?: string }[];
+  items: { id?: string; name: string; price?: string; quantity: number; notes?: string }[];
   items_summary: string | null;
   delivery_address: string | null;
   special_instructions: string | null;
   total_amount: string | null;
   status: string;
+  staff_notes: string | null;
+  estimated_ready_at: string | null;
+  accepted_at: string | null;
+  completed_at: string | null;
   created_at: string;
 }
 
-interface BusinessReservation {
+export interface BusinessReservation {
   id: string;
   customer_name: string;
   customer_phone: string | null;
+  email: string | null;
   reservation_date: string;
   reservation_time: string;
   party_size: number;
   notes: string | null;
+  staff_notes: string | null;
   status: string;
+  preferred_language: string;
   created_at: string;
+  confirmed_at: string | null;
 }
 
 type Tab = "orders" | "reservations";
+type OrderFilter = "new" | "active" | "done" | "all";
 
-// ── Status config ─────────────────────────────────────────────────────────────
-const ORDER_STATUSES = [
-  { value: "pending",    label: "Pending",    color: "text-amber-700  bg-amber-50  border-amber-200"  },
-  { value: "confirmed",  label: "Confirmed",  color: "text-blue-700   bg-blue-50   border-blue-200"   },
-  { value: "preparing",  label: "Preparing",  color: "text-violet-700 bg-violet-50 border-violet-200" },
-  { value: "ready",      label: "Ready",      color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  { value: "completed",  label: "Completed",  color: "text-gray-600   bg-gray-100  border-gray-200"   },
-  { value: "cancelled",  label: "Cancelled",  color: "text-red-700    bg-red-50    border-red-200"    },
-];
+// ── Status definitions ────────────────────────────────────────────────────────
+const ORDER_STATUS_MAP: Record<string, { label: string; badge: string; dot: string }> = {
+  pending:          { label: "New",          badge: "bg-orange-100 text-orange-800 border border-orange-200",   dot: "bg-orange-500" },
+  accepted:         { label: "Accepted",     badge: "bg-blue-100   text-blue-800   border border-blue-200",     dot: "bg-blue-500"   },
+  preparing:        { label: "Preparing",    badge: "bg-violet-100 text-violet-800 border border-violet-200",   dot: "bg-violet-500" },
+  ready:            { label: "Ready",        badge: "bg-emerald-100 text-emerald-800 border border-emerald-200",dot: "bg-emerald-500"},
+  out_for_delivery: { label: "On the way",   badge: "bg-cyan-100   text-cyan-800   border border-cyan-200",     dot: "bg-cyan-500"   },
+  completed:        { label: "Done",         badge: "bg-gray-100   text-gray-600   border border-gray-200",     dot: "bg-gray-400"   },
+  cancelled:        { label: "Cancelled",    badge: "bg-red-100    text-red-700    border border-red-200",      dot: "bg-red-500"    },
+  rejected:         { label: "Rejected",     badge: "bg-red-100    text-red-700    border border-red-200",      dot: "bg-red-500"    },
+};
 
-const RES_STATUSES = [
-  { value: "pending",   label: "Pending",   color: "text-amber-700  bg-amber-50  border-amber-200"  },
-  { value: "confirmed", label: "Confirmed", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  { value: "cancelled", label: "Cancelled", color: "text-red-700    bg-red-50    border-red-200"    },
-  { value: "completed", label: "Completed", color: "text-gray-600   bg-gray-100  border-gray-200"   },
-];
+const RES_STATUS_MAP: Record<string, { label: string; badge: string }> = {
+  pending:   { label: "Pending",   badge: "bg-orange-100 text-orange-800 border border-orange-200" },
+  confirmed: { label: "Confirmed", badge: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
+  cancelled: { label: "Cancelled", badge: "bg-red-100 text-red-700 border border-red-200" },
+  completed: { label: "Done",      badge: "bg-gray-100 text-gray-600 border border-gray-200" },
+  no_show:   { label: "No show",   badge: "bg-gray-100 text-gray-500 border border-gray-200" },
+};
 
-function statusColor(status: string, isRes = false) {
-  const list = isRes ? RES_STATUSES : ORDER_STATUSES;
-  return list.find((s) => s.value === status)?.color ?? "text-gray-600 bg-gray-100 border-gray-200";
+// Next logical status for quick-action
+const ORDER_NEXT: Record<string, { label: string; value: string; color: string }[]> = {
+  pending:          [
+    { label: "✓ Accept",  value: "accepted",  color: "bg-emerald-600 hover:bg-emerald-700 text-white" },
+    { label: "✗ Decline", value: "rejected",  color: "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200" },
+  ],
+  accepted:         [{ label: "Start preparing", value: "preparing",        color: "bg-violet-600 hover:bg-violet-700 text-white" }],
+  preparing:        [{ label: "Mark ready",       value: "ready",            color: "bg-emerald-600 hover:bg-emerald-700 text-white" }],
+  ready:            [
+    { label: "Out for delivery", value: "out_for_delivery", color: "bg-cyan-600 hover:bg-cyan-700 text-white" },
+    { label: "Mark complete",    value: "completed",         color: "bg-gray-700 hover:bg-gray-800 text-white" },
+  ],
+  out_for_delivery: [{ label: "Mark delivered", value: "completed", color: "bg-emerald-600 hover:bg-emerald-700 text-white" }],
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1)  return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h` : new Date(dateStr).toLocaleDateString("el", { day: "numeric", month: "short" });
 }
 
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("el", { hour: "2-digit", minute: "2-digit" });
+}
+
+function etaMins(iso: string | null): number | null {
+  if (!iso) return null;
+  const m = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
+  return m > 0 ? m : 0;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 function StatusBadge({ status, isRes = false }: { status: string; isRes?: boolean }) {
+  const map = isRes ? RES_STATUS_MAP : ORDER_STATUS_MAP;
+  const cfg = map[status] ?? { label: status, badge: "bg-gray-100 text-gray-600" };
   return (
-    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full border ${statusColor(status, isRes)}`}>
-      {status}
+    <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
+      {cfg.label}
     </span>
   );
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1)  return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
-
-// ── Order Card ────────────────────────────────────────────────────────────────
-function OrderCard({
-  order, onStatusChange, updating,
-}: {
-  order: BusinessOrder;
-  onStatusChange: (id: string, status: string) => void;
-  updating: string | null;
+// ── Order row card (left panel list) ──────────────────────────────────────────
+function OrderRow({ order, selected, onSelect }: {
+  order: BusinessOrder; selected: boolean; onSelect: () => void;
 }) {
-  const [expanded, setExpanded] = useState(order.status === "pending");
-  const [selectOpen, setSelectOpen] = useState(false);
-  const active = ORDER_STATUSES.filter((s) => s.value !== order.status);
+  const cfg   = ORDER_STATUS_MAP[order.status];
+  const isPending = order.status === "pending";
 
   return (
-    <div className={`bg-white border rounded-2xl overflow-hidden transition-all ${
-      order.status === "pending" ? "border-amber-200 shadow-amber-50 shadow-md" : "border-gray-200"
-    }`} style={{ boxShadow: order.status === "pending" ? "0 2px 12px rgba(245,158,11,0.12)" : "0 1px 3px rgba(0,0,0,0.04)" }}>
-      <div className="px-5 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                order.order_type === "delivery"
-                  ? "bg-orange-50 text-orange-700 border border-orange-200"
-                  : "bg-blue-50 text-blue-700 border border-blue-200"
-              }`}>
-                {order.order_type === "delivery" ? <Bike className="w-3 h-3" /> : <Package className="w-3 h-3" />}
-                {order.order_type}
-              </span>
-              <StatusBadge status={order.status} />
-              <span className="text-xs text-gray-400">{timeAgo(order.created_at)}</span>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full text-left px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+        selected ? "bg-violet-50 border-l-2 border-l-violet-500" : ""
+      } ${isPending ? "bg-orange-50/60" : ""}`}
+    >
+      <div className="flex items-start gap-3">
+        <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${cfg?.dot ?? "bg-gray-300"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-gray-900 truncate">{order.customer_name}</p>
+            <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(order.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {order.order_type === "delivery"
+              ? <Bike className="w-3 h-3 text-orange-500 flex-shrink-0" />
+              : <Package className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+            <p className="text-xs text-gray-500 truncate">
+              {order.items_summary ?? order.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <StatusBadge status={order.status} />
+            {order.total_amount && (
+              <span className="text-xs font-bold text-gray-700">€{order.total_amount}</span>
+            )}
+            {order.estimated_ready_at && order.status !== "completed" && (() => {
+              const m = etaMins(order.estimated_ready_at);
+              return m !== null ? <span className="text-xs text-violet-600 flex items-center gap-0.5"><Timer className="w-3 h-3" />{m}m</span> : null;
+            })()}
+          </div>
+        </div>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-1" />
+      </div>
+    </button>
+  );
+}
+
+// ── Reservation row ────────────────────────────────────────────────────────────
+function ResRow({ res, selected, onSelect }: {
+  res: BusinessReservation; selected: boolean; onSelect: () => void;
+}) {
+  const date = new Date(res.reservation_date + "T00:00:00");
+  const today = new Date(); today.setHours(0,0,0,0);
+  const isToday = date.getTime() === today.getTime();
+  const isPast  = date < today;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full text-left px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+        selected ? "bg-violet-50 border-l-2 border-l-violet-500" : ""
+      } ${res.status === "pending" ? "bg-orange-50/60" : ""}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+          res.status === "pending" ? "bg-orange-500" : res.status === "confirmed" ? "bg-emerald-500" : "bg-gray-300"
+        }`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-gray-900 truncate">{res.customer_name}</p>
+            <span className={`text-xs flex-shrink-0 font-semibold ${isToday ? "text-violet-600" : isPast ? "text-red-400" : "text-gray-400"}`}>
+              {isToday ? "Today" : date.toLocaleDateString("en", { month: "short", day: "numeric" })}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <Clock className="w-3 h-3 text-gray-400" />
+            <span className="text-xs text-gray-500">{res.reservation_time.slice(0,5)}</span>
+            <Users className="w-3 h-3 text-gray-400 ml-1" />
+            <span className="text-xs text-gray-500">{res.party_size}</span>
+          </div>
+          <div className="mt-1">
+            <StatusBadge status={res.status} isRes />
+          </div>
+        </div>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-1" />
+      </div>
+    </button>
+  );
+}
+
+// ── Order Detail Panel ─────────────────────────────────────────────────────────
+function OrderDetail({ order, businessId, onUpdate, onClose, csrfToken }: {
+  order: BusinessOrder;
+  businessId: string;
+  onUpdate: () => void;
+  onClose: () => void;
+  csrfToken: string | null;
+}) {
+  const [updating,  setUpdating]  = useState<string | null>(null);
+  const [staffNote, setStaffNote] = useState(order.staff_notes ?? "");
+  const [etaInput,   setEtaInput]   = useState("20");
+  const [saving,    setSaving]    = useState(false);
+
+  const nextActions = ORDER_NEXT[order.status] ?? [];
+
+  async function updateStatus(status: string, extraEtaMins?: number) {
+    if (!csrfToken) return;
+    setUpdating(status);
+    const body: Record<string, unknown> = { status };
+    if (extraEtaMins) {
+      body.estimated_ready_at = new Date(Date.now() + extraEtaMins * 60_000).toISOString();
+    }
+    if (staffNote !== order.staff_notes) body.staff_notes = staffNote;
+    await fetch(`/api/businesses/${businessId}/orders/${order.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(body),
+    });
+    setUpdating(null);
+    onUpdate();
+  }
+
+  async function saveNote() {
+    if (!csrfToken) return;
+    setSaving(true);
+    await fetch(`/api/businesses/${businessId}/orders/${order.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ staff_notes: staffNote }),
+    });
+    setSaving(false);
+    onUpdate();
+  }
+
+  const trackingUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/portal/${businessId}/track/${order.id}`
+    : "";
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Detail header */}
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <button type="button" onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-600">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-base font-bold text-gray-900">{order.customer_name}</h2>
+            <StatusBadge status={order.status} />
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">#{order.id.slice(0, 8).toUpperCase()} · {fmtTime(order.created_at)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigator.clipboard?.writeText(trackingUrl)}
+          title="Copy tracking link"
+          className="text-gray-400 hover:text-violet-600 transition-colors"
+        >
+          <Copy className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 space-y-5">
+
+          {/* Accept / Reject — prominent for pending */}
+          {order.status === "pending" && (
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 space-y-3">
+              <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                <Bell className="w-4 h-4" /> New order awaiting approval
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={updating !== null}
+                  onClick={() => updateStatus("accepted", parseInt(etaInput) || 20)}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {updating === "accepted" ? "Accepting…" : "Accept"}
+                </button>
+                <button
+                  type="button"
+                  disabled={updating !== null}
+                  onClick={() => updateStatus("rejected")}
+                  className="flex-1 py-3 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-red-700 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <XCircle className="w-4 h-4" />
+                  {updating === "rejected" ? "Declining…" : "Decline"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                <label className="text-xs text-orange-700 font-medium">Estimated ready in</label>
+                <input
+                  type="number"
+                  value={etaInput}
+                  onChange={(e) => setEtaInput(e.target.value)}
+                  min={5} max={120}
+                  className="w-16 text-xs border border-orange-200 rounded-lg px-2 py-1 text-center outline-none focus:border-orange-400 bg-white"
+                />
+                <span className="text-xs text-orange-700">minutes</span>
+              </div>
             </div>
-            <p className="font-semibold text-gray-900 mt-1.5">{order.customer_name}</p>
+          )}
+
+          {/* Other status actions */}
+          {order.status !== "pending" && nextActions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {nextActions.map((action) => (
+                <button
+                  key={action.value}
+                  type="button"
+                  disabled={updating !== null}
+                  onClick={() => updateStatus(action.value)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${action.color}`}
+                >
+                  {updating === action.value ? "Updating…" : action.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Customer info */}
+          <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
+            <p className="text-sm font-semibold text-gray-900">{order.customer_name}</p>
             {order.customer_phone && (
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                <Phone className="w-3 h-3" /> {order.customer_phone}
+              <a href={`tel:${order.customer_phone}`}
+                 className="flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800">
+                <Phone className="w-3.5 h-3.5" /> {order.customer_phone}
+              </a>
+            )}
+            {order.email && <p className="text-xs text-gray-500">{order.email}</p>}
+          </div>
+
+          {/* Order type + address */}
+          <div className="space-y-2">
+            <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${
+              order.order_type === "delivery"
+                ? "bg-orange-50 text-orange-700 border border-orange-200"
+                : "bg-blue-50 text-blue-700 border border-blue-200"
+            }`}>
+              {order.order_type === "delivery" ? <Bike className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />}
+              {order.order_type === "delivery" ? "Delivery" : "Takeaway"}
+            </div>
+            {order.delivery_address && (
+              <p className="text-sm text-gray-600 flex items-start gap-2">
+                <span className="text-gray-400 mt-0.5">📍</span>
+                {order.delivery_address}
               </p>
             )}
-            <p className="text-sm text-gray-600 mt-1.5 line-clamp-1">
-              {order.items_summary ?? order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-            </p>
-            {order.total_amount && (
-              <p className="text-sm font-bold text-gray-900 mt-0.5">€{order.total_amount}</p>
-            )}
           </div>
-          <button type="button" onClick={() => setExpanded((e) => !e)}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0 mt-0.5">
-            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </button>
-        </div>
 
-        {expanded && (
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-            {/* Items */}
-            {order.items.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Items</p>
-                <div className="space-y-1">
-                  {order.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">{item.quantity}× {item.name}</span>
+          {/* Items */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Items</p>
+            <div className="space-y-2">
+              {order.items?.length > 0
+                ? order.items.map((item, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <div>
+                        <span className="text-sm text-gray-900">{item.quantity}× {item.name}</span>
+                        {item.notes && <p className="text-xs text-gray-400">{item.notes}</p>}
+                      </div>
                       {item.price && parseFloat(item.price) > 0 && (
-                        <span className="text-gray-500 text-xs">€{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                        <span className="text-sm text-gray-500 font-medium">
+                          €{(parseFloat(item.price) * item.quantity).toFixed(2)}
+                        </span>
                       )}
                     </div>
-                  ))}
+                  ))
+                : <p className="text-sm text-gray-600">{order.items_summary}</p>
+              }
+              {order.total_amount && (
+                <div className="flex justify-between border-t border-gray-100 pt-2 mt-2">
+                  <span className="text-sm font-bold text-gray-900">Total</span>
+                  <span className="text-sm font-bold text-gray-900">€{order.total_amount}</span>
                 </div>
-              </div>
-            )}
-            {order.delivery_address && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Delivery address</p>
-                <p className="text-sm text-gray-700">{order.delivery_address}</p>
-              </div>
-            )}
-            {order.special_instructions && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Notes</p>
-                <p className="text-sm text-gray-700">{order.special_instructions}</p>
-              </div>
-            )}
-            {/* Status actions */}
-            {order.status !== "completed" && order.status !== "cancelled" && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {active.slice(0, 3).map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    disabled={updating === order.id}
-                    onClick={() => onStatusChange(order.id, s.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${s.color}`}
-                  >
-                    {updating === order.id ? "…" : `Mark ${s.label}`}
-                  </button>
-                ))}
-              </div>
+              )}
+            </div>
+          </div>
+
+          {order.special_instructions && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-amber-700 mb-0.5">Customer notes</p>
+              <p className="text-sm text-amber-800">{order.special_instructions}</p>
+            </div>
+          )}
+
+          {/* ETA */}
+          {order.estimated_ready_at && order.status !== "completed" && order.status !== "rejected" && order.status !== "cancelled" && (
+            <div className="flex items-center gap-2 text-sm text-violet-700 bg-violet-50 border border-violet-100 rounded-xl px-4 py-2.5">
+              <Timer className="w-4 h-4 flex-shrink-0" />
+              <span>ETA: {fmtTime(order.estimated_ready_at)}
+                {(() => { const m = etaMins(order.estimated_ready_at); return m !== null && m > 0 ? ` (~${m} min)` : " — should be ready soon"; })()}
+              </span>
+            </div>
+          )}
+
+          {/* Staff notes */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <StickyNote className="w-3.5 h-3.5" /> Internal notes
+            </label>
+            <textarea
+              value={staffNote}
+              onChange={(e) => setStaffNote(e.target.value)}
+              rows={3}
+              placeholder="Notes for kitchen or delivery staff…"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none"
+            />
+            {staffNote !== order.staff_notes && (
+              <button type="button" onClick={saveNote} disabled={saving}
+                className="mt-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50">
+                {saving ? "Saving…" : "Save note"}
+              </button>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Reservation Card ──────────────────────────────────────────────────────────
-function ReservationCard({
-  res, onStatusChange, updating, isMeetings,
-}: {
+// ── Reservation Detail Panel ───────────────────────────────────────────────────
+function ReservationDetail({ res, businessId, onUpdate, onClose, csrfToken }: {
   res: BusinessReservation;
-  onStatusChange: (id: string, status: string) => void;
-  updating: string | null;
-  isMeetings: boolean;
+  businessId: string;
+  onUpdate: () => void;
+  onClose: () => void;
+  csrfToken: string | null;
 }) {
-  const [expanded, setExpanded] = useState(res.status === "pending");
-  const active = RES_STATUSES.filter((s) => s.value !== res.status);
-  const isPast = res.reservation_date < new Date().toISOString().split("T")[0];
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [staffNote, setStaffNote] = useState(res.staff_notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const date = new Date(res.reservation_date + "T00:00:00");
+
+  async function updateStatus(status: string) {
+    if (!csrfToken) return;
+    setUpdating(status);
+    const body: Record<string, unknown> = { status };
+    if (staffNote !== res.staff_notes) body.staff_notes = staffNote;
+    await fetch(`/api/businesses/${businessId}/reservations/${res.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(body),
+    });
+    setUpdating(null);
+    onUpdate();
+  }
+
+  async function saveNote() {
+    if (!csrfToken) return;
+    setSaving(true);
+    await fetch(`/api/businesses/${businessId}/reservations/${res.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ staff_notes: staffNote }),
+    });
+    setSaving(false);
+    onUpdate();
+  }
 
   return (
-    <div className={`bg-white border rounded-2xl overflow-hidden ${
-      res.status === "pending" && !isPast
-        ? "border-amber-200"
-        : "border-gray-200"
-    }`} style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      <div className="px-5 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={res.status} isRes />
-              <span className="text-xs text-gray-400">{timeAgo(res.created_at)}</span>
-              {isPast && res.status === "pending" && (
-                <span className="text-xs text-red-500">Past</span>
-              )}
-            </div>
-            <p className="font-semibold text-gray-900 mt-1.5">{res.customer_name}</p>
-            {res.customer_phone && (
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                <Phone className="w-3 h-3" /> {res.customer_phone}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-3 mt-1.5">
-              <span className="flex items-center gap-1 text-sm text-gray-700">
-                <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
-                {new Date(res.reservation_date + "T00:00:00").toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}
-                {" "}{res.reservation_time.slice(0, 5)}
-              </span>
-              {!isMeetings && (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Users className="w-3 h-3" /> {res.party_size} {res.party_size === 1 ? "person" : "people"}
-                </span>
-              )}
-            </div>
+    <div className="flex flex-col h-full">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <button type="button" onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-600">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-900">{res.customer_name}</h2>
+            <StatusBadge status={res.status} isRes />
           </div>
-          <button type="button" onClick={() => setExpanded((e) => !e)}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0 mt-0.5">
-            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </button>
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">#{res.id.slice(0, 8).toUpperCase()}</p>
         </div>
+      </div>
 
-        {expanded && (
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-            {res.notes && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Notes</p>
-                <p className="text-sm text-gray-700">{res.notes}</p>
-              </div>
-            )}
-            {res.status !== "completed" && res.status !== "cancelled" && (
-              <div className="flex flex-wrap gap-2">
-                {active.slice(0, 3).map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    disabled={updating === res.id}
-                    onClick={() => onStatusChange(res.id, s.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${s.color}`}
-                  >
-                    {updating === res.id ? "…" : `Mark ${s.label}`}
-                  </button>
-                ))}
-              </div>
-            )}
+      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        {/* Confirm / Decline for pending */}
+        {res.status === "pending" && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 space-y-3">
+            <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+              <Bell className="w-4 h-4" /> New booking awaiting confirmation
+            </p>
+            <div className="flex gap-2">
+              <button type="button" disabled={updating !== null}
+                onClick={() => updateStatus("confirmed")}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                {updating === "confirmed" ? "Confirming…" : "Confirm booking"}
+              </button>
+              <button type="button" disabled={updating !== null}
+                onClick={() => updateStatus("cancelled")}
+                className="flex-1 py-3 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-red-700 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                <XCircle className="w-4 h-4" />
+                {updating === "cancelled" ? "Declining…" : "Decline"}
+              </button>
+            </div>
           </div>
         )}
+
+        {res.status === "confirmed" && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={updating !== null} onClick={() => updateStatus("completed")}
+              className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-800 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              {updating === "completed" ? "…" : "Mark completed"}
+            </button>
+            <button type="button" disabled={updating !== null} onClick={() => updateStatus("no_show")}
+              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold transition-colors disabled:opacity-50">
+              {updating === "no_show" ? "…" : "No show"}
+            </button>
+            <button type="button" disabled={updating !== null} onClick={() => updateStatus("cancelled")}
+              className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-sm font-semibold transition-colors disabled:opacity-50">
+              {updating === "cancelled" ? "…" : "Cancel"}
+            </button>
+          </div>
+        )}
+
+        {/* Details */}
+        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
+          <p className="text-sm font-semibold text-gray-900">{res.customer_name}</p>
+          {res.customer_phone && (
+            <a href={`tel:${res.customer_phone}`} className="flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800">
+              <Phone className="w-3.5 h-3.5" /> {res.customer_phone}
+            </a>
+          )}
+          {res.email && <p className="text-xs text-gray-500">{res.email}</p>}
+          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            res.preferred_language === "el" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"
+          }`}>
+            {res.preferred_language === "el" ? "🇬🇷 Greek" : "🇬🇧 English"}
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <CalendarDays className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {date.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+              <p className="text-sm text-gray-600">at {res.reservation_time.slice(0, 5)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <p className="text-sm text-gray-700">{res.party_size} {res.party_size === 1 ? "person" : "people"}</p>
+          </div>
+        </div>
+
+        {res.notes && (
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-amber-700 mb-0.5">Customer notes</p>
+            <p className="text-sm text-amber-800">{res.notes}</p>
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <StickyNote className="w-3.5 h-3.5" /> Internal notes
+          </label>
+          <textarea value={staffNote} onChange={(e) => setStaffNote(e.target.value)}
+            rows={3} placeholder="Notes for staff…"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none" />
+          {staffNote !== res.staff_notes && (
+            <button type="button" onClick={saveNote} disabled={saving}
+              className="mt-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50">
+              {saving ? "Saving…" : "Save note"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 interface Props {
   businessId: string;
   initialOrders: BusinessOrder[];
@@ -276,18 +607,20 @@ interface Props {
 export default function BusinessDashboardClient({
   businessId, initialOrders, initialReservations, hasOrders, hasReservations, isMeetings,
 }: Props) {
-  const [activeTab,     setActiveTab]     = useState<Tab>(hasOrders ? "orders" : "reservations");
-  const [orders,        setOrders]        = useState<BusinessOrder[]>(initialOrders);
-  const [reservations,  setReservations]  = useState<BusinessReservation[]>(initialReservations);
-  const [updatingId,    setUpdatingId]    = useState<string | null>(null);
-  const [live,          setLive]          = useState(false);
-  const [csrfToken,     setCsrfToken]     = useState<string | null>(null);
-  const [filterStatus,  setFilterStatus]  = useState("all");
+  const [tab,          setTab]         = useState<Tab>(hasOrders ? "orders" : "reservations");
+  const [orders,       setOrders]      = useState<BusinessOrder[]>(initialOrders);
+  const [reservations, setRes]         = useState<BusinessReservation[]>(initialReservations);
+  const [selectedOrderId, setSelOrder] = useState<string | null>(null);
+  const [selectedResId,   setSelRes]   = useState<string | null>(null);
+  const [orderFilter,  setOrderFilter] = useState<OrderFilter>("new");
+  const [live,         setLive]        = useState(false);
+  const [csrfToken,    setCsrf]        = useState<string | null>(null);
+  const notifRef = useRef(false);
 
   useEffect(() => {
     const cookie = document.cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith("csrf="));
-    if (cookie) setCsrfToken(cookie.split("=")[1]);
-    else fetch("/api/auth/csrf").then((r) => r.json()).then((d) => setCsrfToken(d.csrfToken));
+    if (cookie) setCsrf(cookie.split("=")[1]);
+    else fetch("/api/auth/csrf").then((r) => r.json()).then((d) => setCsrf(d.csrfToken));
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -295,157 +628,206 @@ export default function BusinessDashboardClient({
     if (res.ok) setOrders(await res.json());
   }, [businessId]);
 
-  const fetchReservations = useCallback(async () => {
+  const fetchRes = useCallback(async () => {
     const res = await fetch(`/api/businesses/${businessId}/reservations`);
-    if (res.ok) setReservations(await res.json());
+    if (res.ok) setRes(await res.json());
   }, [businessId]);
 
-  // SSE
   useEffect(() => {
     const es = new EventSource(`/api/businesses/${businessId}/stream`);
     es.addEventListener("message", (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "connected") setLive(true);
-      if (msg.type === "orders")       fetchOrders();
-      if (msg.type === "reservations") fetchReservations();
+      if (msg.type === "orders") {
+        fetchOrders();
+        // Browser notification for new orders
+        if (notifRef.current && Notification.permission === "granted") {
+          new Notification("New order received!", { body: "A new order is waiting for approval." });
+        }
+        notifRef.current = true;
+      }
+      if (msg.type === "reservations") fetchRes();
     });
     es.onerror = () => setLive(false);
     return () => es.close();
-  }, [businessId, fetchOrders, fetchReservations]);
+  }, [businessId, fetchOrders, fetchRes]);
 
-  async function updateOrderStatus(id: string, status: string) {
-    if (!csrfToken) return;
-    setUpdatingId(id);
-    await fetch(`/api/businesses/${businessId}/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
-      body: JSON.stringify({ status }),
-    });
-    setUpdatingId(null);
-    fetchOrders();
-  }
-
-  async function updateResStatus(id: string, status: string) {
-    if (!csrfToken) return;
-    setUpdatingId(id);
-    await fetch(`/api/businesses/${businessId}/reservations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
-      body: JSON.stringify({ status }),
-    });
-    setUpdatingId(null);
-    fetchReservations();
-  }
+  // Notification permission
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
+  const activeOrders  = orders.filter((o) => ["accepted","preparing","ready","out_for_delivery"].includes(o.status)).length;
+  const todayDone     = orders.filter((o) => o.status === "completed" && new Date(o.created_at).toDateString() === new Date().toDateString()).length;
   const pendingRes    = reservations.filter((r) => r.status === "pending").length;
 
-  const filteredOrders = filterStatus === "all"
-    ? orders
-    : orders.filter((o) => o.status === filterStatus);
+  const filteredOrders = (() => {
+    switch (orderFilter) {
+      case "new":    return orders.filter((o) => o.status === "pending");
+      case "active": return orders.filter((o) => ["accepted","preparing","ready","out_for_delivery"].includes(o.status));
+      case "done":   return orders.filter((o) => ["completed","cancelled","rejected"].includes(o.status));
+      default:       return orders;
+    }
+  })();
 
-  const filteredRes = filterStatus === "all"
-    ? reservations
-    : reservations.filter((r) => r.status === filterStatus);
+  const selectedOrder = orders.find((o) => o.id === selectedOrderId) ?? null;
+  const selectedRes   = reservations.find((r) => r.id === selectedResId) ?? null;
+  const showDetail    = (tab === "orders" && !!selectedOrder) || (tab === "reservations" && !!selectedRes);
 
   return (
-    <div className="space-y-5">
-      {/* Live indicator */}
-      <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${live ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
-        <span className="text-xs text-gray-500">{live ? "Live updates active" : "Connecting…"}</span>
-        <button type="button" onClick={() => { fetchOrders(); fetchReservations(); }}
-          className="ml-auto text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+    <div className="flex flex-col" style={{ height: "calc(100vh - 120px)", minHeight: "600px" }}>
+      {/* Top stats bar */}
+      <div className="flex items-center gap-4 px-0 pb-4 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${live ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+          <span className="text-xs text-gray-500">{live ? "Live" : "Connecting…"}</span>
+        </div>
+        {hasOrders && (
+          <>
+            <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-xl px-3 py-1.5">
+              <Bell className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-bold text-orange-700">{pendingOrders} new</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5">
+              <Utensils className="w-3.5 h-3.5 text-blue-600" />
+              <span className="text-xs font-bold text-blue-700">{activeOrders} active</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded-xl px-3 py-1.5">
+              <Star className="w-3.5 h-3.5 text-gray-500" />
+              <span className="text-xs font-bold text-gray-600">{todayDone} done today</span>
+            </div>
+          </>
+        )}
+        {hasReservations && pendingRes > 0 && (
+          <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-xl px-3 py-1.5">
+            <CalendarDays className="w-3.5 h-3.5 text-purple-600" />
+            <span className="text-xs font-bold text-purple-700">{pendingRes} bookings pending</span>
+          </div>
+        )}
+        <button type="button" onClick={() => { fetchOrders(); fetchRes(); }}
+          className="ml-auto text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+          <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Tabs */}
-      {hasOrders && hasReservations && (
-        <div className="flex gap-2 bg-gray-100 rounded-2xl p-1">
-          <button type="button" onClick={() => { setActiveTab("orders"); setFilterStatus("all"); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "orders" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>
-            <Package className="w-4 h-4" /> Orders
-            {pendingOrders > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white">
-                {pendingOrders}
-              </span>
+      {/* Main panel */}
+      <div className="flex flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden"
+           style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+
+        {/* Left: list */}
+        <div className={`flex flex-col border-r border-gray-100 ${showDetail ? "hidden lg:flex lg:w-80 xl:w-96" : "flex w-full"}`}>
+          {/* Tab row */}
+          <div className="flex border-b border-gray-100 flex-shrink-0">
+            {hasOrders && (
+              <button type="button" onClick={() => { setTab("orders"); setSelOrder(null); }}
+                className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+                  tab === "orders" ? "border-violet-600 text-violet-700" : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}>
+                <Package className="w-4 h-4" /> Orders
+                {pendingOrders > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                    {pendingOrders}
+                  </span>
+                )}
+              </button>
             )}
-          </button>
-          <button type="button" onClick={() => { setActiveTab("reservations"); setFilterStatus("all"); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "reservations" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>
-            <CalendarDays className="w-4 h-4" /> {isMeetings ? "Appointments" : "Reservations"}
-            {pendingRes > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white">
-                {pendingRes}
-              </span>
+            {hasReservations && (
+              <button type="button" onClick={() => { setTab("reservations"); setSelRes(null); }}
+                className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+                  tab === "reservations" ? "border-violet-600 text-violet-700" : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}>
+                <CalendarDays className="w-4 h-4" /> {isMeetings ? "Appts" : "Reservations"}
+                {pendingRes > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                    {pendingRes}
+                  </span>
+                )}
+              </button>
             )}
-          </button>
+          </div>
+
+          {/* Order filters */}
+          {tab === "orders" && (
+            <div className="flex gap-0 border-b border-gray-100 flex-shrink-0">
+              {(["new","active","done","all"] as OrderFilter[]).map((f) => (
+                <button key={f} type="button" onClick={() => setOrderFilter(f)}
+                  className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors ${
+                    orderFilter === f ? "text-violet-700 bg-violet-50" : "text-gray-400 hover:text-gray-600"
+                  }`}>
+                  {f}
+                  {f === "new" && pendingOrders > 0 && ` (${pendingOrders})`}
+                  {f === "active" && activeOrders > 0 && ` (${activeOrders})`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {tab === "orders" && (
+              filteredOrders.length === 0 ? (
+                <div className="text-center py-16 text-gray-300">
+                  <Package className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-xs">No {orderFilter === "new" ? "new " : orderFilter === "active" ? "active " : ""}orders</p>
+                </div>
+              ) : (
+                filteredOrders.map((order) => (
+                  <OrderRow key={order.id} order={order}
+                    selected={selectedOrderId === order.id}
+                    onSelect={() => { setSelOrder(order.id); setSelRes(null); }} />
+                ))
+              )
+            )}
+            {tab === "reservations" && (
+              reservations.length === 0 ? (
+                <div className="text-center py-16 text-gray-300">
+                  <CalendarDays className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-xs">No reservations yet</p>
+                </div>
+              ) : (
+                reservations.map((res) => (
+                  <ResRow key={res.id} res={res}
+                    selected={selectedResId === res.id}
+                    onSelect={() => { setSelRes(res.id); setSelOrder(null); }} />
+                ))
+              )
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Status filter */}
-      {activeTab === "orders" && hasOrders && (
-        <div className="flex gap-2 flex-wrap">
-          {["all", "pending", "confirmed", "preparing", "ready", "completed", "cancelled"].map((s) => (
-            <button key={s} type="button"
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all capitalize ${
-                filterStatus === s ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-              }`}>{s}</button>
-          ))}
+        {/* Right: detail */}
+        <div className={`flex-1 min-w-0 ${showDetail ? "flex flex-col" : "hidden lg:flex items-center justify-center"}`}>
+          {!showDetail && (
+            <div className="text-center text-gray-300 p-8">
+              <Package className="w-10 h-10 mx-auto mb-3" />
+              <p className="text-sm">Select an order to view details</p>
+            </div>
+          )}
+          {tab === "orders" && selectedOrder && (
+            <OrderDetail
+              key={selectedOrder.id}
+              order={selectedOrder}
+              businessId={businessId}
+              onUpdate={() => fetchOrders()}
+              onClose={() => setSelOrder(null)}
+              csrfToken={csrfToken}
+            />
+          )}
+          {tab === "reservations" && selectedRes && (
+            <ReservationDetail
+              key={selectedRes.id}
+              res={selectedRes}
+              businessId={businessId}
+              onUpdate={() => fetchRes()}
+              onClose={() => setSelRes(null)}
+              csrfToken={csrfToken}
+            />
+          )}
         </div>
-      )}
-
-      {activeTab === "reservations" && hasReservations && (
-        <div className="flex gap-2 flex-wrap">
-          {["all", "pending", "confirmed", "cancelled", "completed"].map((s) => (
-            <button key={s} type="button"
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all capitalize ${
-                filterStatus === s ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-              }`}>{s}</button>
-          ))}
-        </div>
-      )}
-
-      {/* Orders list */}
-      {activeTab === "orders" && hasOrders && (
-        filteredOrders.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <Package className="w-8 h-8 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No orders yet</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredOrders.map((order) => (
-              <OrderCard key={order.id} order={order}
-                onStatusChange={updateOrderStatus} updating={updatingId} />
-            ))}
-          </div>
-        )
-      )}
-
-      {/* Reservations list */}
-      {activeTab === "reservations" && hasReservations && (
-        filteredRes.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <CalendarDays className="w-8 h-8 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No {isMeetings ? "appointments" : "reservations"} yet</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredRes.map((res) => (
-              <ReservationCard key={res.id} res={res}
-                onStatusChange={updateResStatus} updating={updatingId} isMeetings={isMeetings} />
-            ))}
-          </div>
-        )
-      )}
+      </div>
     </div>
   );
 }

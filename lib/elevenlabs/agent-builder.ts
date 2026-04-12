@@ -113,7 +113,10 @@ function buildCapabilitiesSection(business: Business): string {
       `- Minimum ${ws?.booking_lead_time_hours ?? 1} hour(s) advance notice required.\n` +
       `- Maximum party size: ${ws?.max_party_size ?? 10} people.\n` +
       `- Cancellations allowed up to ${ws?.cancellation_window_hours ?? 2} hours before.\n` +
-      (ws?.require_confirmation_for_bookings ? "- Always confirm details: name, phone, date, time, party size.\n" : "")
+      "- Always collect ALL of the following: full name, phone number, desired date, time, number of guests, any special requests.\n" +
+      "- Read the reservation details back and ask for confirmation before finalising.\n" +
+      "- After confirming, tell the customer their reservation is PENDING — staff will confirm it.\n" +
+      "- Do NOT tell the customer the reservation is confirmed — it is pending review."
     );
   } else {
     lines.push("RESERVATIONS: We do NOT take reservations. Inform customers politely.");
@@ -123,7 +126,9 @@ function buildCapabilitiesSection(business: Business): string {
     lines.push(
       "APPOINTMENTS / ΡΑΝΤΕΒΟΥ:\n" +
       "- You CAN schedule appointments for customers.\n" +
-      "- Collect: name, phone, preferred date, time, service requested."
+      "- Always collect ALL of the following: full name, phone number, preferred date, time, service requested.\n" +
+      "- Read back the details and confirm before finalising.\n" +
+      "- After confirming, tell the customer their appointment is PENDING — staff will confirm it."
     );
   }
 
@@ -138,15 +143,31 @@ function buildCapabilitiesSection(business: Business): string {
       (ws?.delivery_radius_km ? `- Delivery radius: ${ws.delivery_radius_km} km.\n` : "") +
       (ws?.delivery_fee ? `- Delivery fee: €${ws.delivery_fee}.\n` : "") +
       (ws?.min_order_value ? `- Minimum order: €${ws.min_order_value}.\n` : "") +
-      (ws?.require_confirmation_for_orders ? "- Confirm: customer name, phone, address, order items.\n" : "")
+      "- Always collect ALL of the following before finalising the order: customer full name, phone number, delivery address, complete list of items with quantities.\n" +
+      "- Read the order back to the customer and ask them to confirm before submitting.\n" +
+      "- After confirming, tell the customer their order has been placed and is PENDING approval from staff.\n" +
+      "- Do NOT tell the customer the order is confirmed or accepted — it is pending until a staff member reviews it.\n" +
+      (ws?.avg_prep_time_minutes
+        ? `- Estimated preparation time: ${ws.avg_prep_time_minutes} minutes.\n`
+        : "") +
+      (ws?.avg_delivery_time_minutes
+        ? `- Estimated delivery time after preparation: ${ws.avg_delivery_time_minutes} minutes.\n`
+        : "")
     );
   }
 
   if (business.takeaway_enabled) {
+    const ws = business.workflow_settings;
     lines.push(
-      "TAKEAWAY / ΠΑΡΑ ΦΟΡΤΟΣ:\n" +
+      "TAKEAWAY / ΠΑΡΑΛΑΒΗ:\n" +
       "- You CAN accept takeaway orders.\n" +
-      "- Collect: customer name, phone, items ordered, pickup time preference."
+      "- Always collect ALL of the following: customer full name, phone number, complete list of items with quantities, preferred pickup time.\n" +
+      "- Read the order back to the customer and ask them to confirm before submitting.\n" +
+      "- After confirming, tell the customer their order is PENDING and staff will prepare it soon.\n" +
+      "- Do NOT tell the customer the order is confirmed — it is pending until a staff member reviews it.\n" +
+      (ws?.avg_prep_time_minutes
+        ? `- Estimated pickup wait: ${ws.avg_prep_time_minutes} minutes.\n`
+        : "")
     );
   }
 

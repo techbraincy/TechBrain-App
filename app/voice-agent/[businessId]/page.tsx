@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   Edit3, Mic2, Sliders, CheckCircle2, AlertCircle, Clock, Zap,
   Phone, MapPin, Globe, CalendarDays, Package, Bike, Coffee,
-  ChevronRight, ExternalLink, ArrowLeft, RefreshCw, BarChart2, Share2
+  ChevronRight, ExternalLink, ArrowLeft, RefreshCw, BarChart2, Share2, Users
 } from "lucide-react";
 import { getBusinessById } from "@/lib/db/queries/businesses";
 import { BUSINESS_CATEGORIES } from "@/types/agent";
@@ -261,6 +261,15 @@ export default async function BusinessPage({ params }: Params) {
             desc="Branding, workflows, escalation rules, permissions"
             color="bg-emerald-50 border border-emerald-100 text-emerald-600"
           />
+          {(business.delivery_enabled || business.takeaway_enabled || business.reservation_enabled || business.meetings_enabled) && (
+            <NavCard
+              href={`/voice-agent/${business.id}/customers`}
+              icon={Users}
+              label="Customers"
+              desc="CRM — all contacts, spend, and visit history"
+              color="bg-pink-50 border border-pink-100 text-pink-600"
+            />
+          )}
         </div>
       </div>
 

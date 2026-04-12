@@ -61,15 +61,18 @@ export default function PortalClient({ business }: { business: Business }) {
   // Order form
   const [oName,    setOName]    = useState("");
   const [oPhone,   setOPhone]   = useState("");
+  const [oEmail,   setOEmail]   = useState("");
   const [oAddress, setOAddress] = useState("");
   const [oNote,    setONote]    = useState("");
-  const [oSubmitting, setOSubmitting] = useState(false);
-  const [oSuccess,    setOSuccess]    = useState(false);
-  const [oError,      setOError]      = useState("");
+  const [oSubmitting,  setOSubmitting]  = useState(false);
+  const [oSuccess,     setOSuccess]     = useState(false);
+  const [oError,       setOError]       = useState("");
+  const [oOrderId,     setOOrderId]     = useState<string | null>(null);
 
   // Reservation form
   const [rName,    setRName]    = useState("");
   const [rPhone,   setRPhone]   = useState("");
+  const [rEmail,   setREmail]   = useState("");
   const [rDate,    setRDate]    = useState("");
   const [rTime,    setRTime]    = useState("");
   const [rSize,    setRSize]    = useState("2");
@@ -77,6 +80,10 @@ export default function PortalClient({ business }: { business: Business }) {
   const [rSubmitting, setRSubmitting] = useState(false);
   const [rSuccess,    setRSuccess]    = useState(false);
   const [rError,      setRError]      = useState("");
+
+  const userLang = typeof navigator !== "undefined"
+    ? (navigator.language?.split("-")[0] ?? null)
+    : null;
 
   const filteredItems = activeCategory === "All"
     ? allItems
@@ -126,6 +133,8 @@ export default function PortalClient({ business }: { business: Business }) {
         body: JSON.stringify({
           customer_name: oName.trim(),
           customer_phone: oPhone.trim() || null,
+          customer_email: oEmail.trim() || null,
+          preferred_language: userLang,
           order_type: orderType,
           delivery_address: oAddress.trim() || null,
           special_instructions: oNote.trim() || null,
@@ -135,6 +144,8 @@ export default function PortalClient({ business }: { business: Business }) {
         }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed"); }
+      const data = await res.json();
+      setOOrderId(data.id ?? null);
       setOSuccess(true);
       setCart([]);
     } catch (err) {
@@ -158,6 +169,8 @@ export default function PortalClient({ business }: { business: Business }) {
         body: JSON.stringify({
           customer_name: rName.trim(),
           customer_phone: rPhone.trim() || null,
+          customer_email: rEmail.trim() || null,
+          preferred_language: userLang,
           reservation_date: rDate,
           reservation_time: rTime,
           party_size: parseInt(rSize) || 2,
@@ -395,7 +408,16 @@ export default function PortalClient({ business }: { business: Business }) {
                           <CheckCircle2 className="w-10 h-10 text-emerald-500" />
                           <p className="font-semibold text-gray-900">Order placed!</p>
                           <p className="text-sm text-gray-500">We'll be in touch shortly.</p>
-                          <button type="button" onClick={() => { setOSuccess(false); setCartOpen(false); }}
+                          {oOrderId && (
+                            <a
+                              href={`/portal/${business.id}/track/${oOrderId}`}
+                              className="mt-1 text-xs font-medium underline"
+                              style={{ color: primary }}
+                            >
+                              Track your order →
+                            </a>
+                          )}
+                          <button type="button" onClick={() => { setOSuccess(false); setOOrderId(null); setCartOpen(false); }}
                             className="mt-2 text-xs text-violet-600 hover:underline">Place another order</button>
                         </div>
                       ) : (
@@ -407,6 +429,9 @@ export default function PortalClient({ business }: { business: Business }) {
                               type="tel"
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
                           </div>
+                          <input value={oEmail} onChange={(e) => setOEmail(e.target.value)} placeholder="Email (for updates)"
+                            type="email"
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
                           {orderType === "delivery" && (
                             <input value={oAddress} onChange={(e) => setOAddress(e.target.value)} placeholder="Delivery address *"
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
@@ -469,6 +494,12 @@ export default function PortalClient({ business }: { business: Business }) {
                       type="tel" placeholder="+30 ..."
                       className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                  <input value={rEmail} onChange={(e) => setREmail(e.target.value)}
+                    type="email" placeholder="your@email.com"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-violet-400" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

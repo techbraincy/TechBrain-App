@@ -4,9 +4,17 @@ import { getSupabaseServer } from "@/lib/db/supabase-server";
 import { validateCsrf } from "@/lib/auth/csrf";
 import { z } from "zod";
 
+const RES_STATUSES = ["pending", "confirmed", "cancelled", "completed", "no_show"] as const;
+
 const schema = z.object({
-  status: z.enum(["pending", "confirmed", "cancelled", "completed"]),
+  status:       z.enum(RES_STATUSES).optional(),
+  staff_notes:  z.string().optional(),
 });
+
+const STATUS_TIMESTAMPS: Record<string, string> = {
+  confirmed: "confirmed_at",
+  completed: "completed_at",
+};
 
 type Params = { params: Promise<{ id: string; reservationId: string }> };
 
@@ -19,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id: businessId, reservationId } = await params;
   const body = schema.safeParse(await req.json());
-  if (!body.success) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  if (!body.success) return NextResponse.json({ error: body.error.flatten() }, { status: 400 });
 
   const supabase = getSupabaseServer();
 
@@ -31,9 +39,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
+  const updates: Record<string, unknown> = {};
+
+  if (body.data.status !== undefined) {
+    updates.status = body.data.status;
+    const tsCol = STATUS_TIMESTAMPS[body.data.status];
+    if (tsCol) updates[tsCol] = new Date().toISOString();
+  }
+  if (body.data.staff_notes !== undefined) updates.staff_notes = body.data.staff_notes;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from("business_reservations")
-    .update({ status: body.data.status })
+    .update(updates)
     .eq("id", reservationId)
     .eq("business_id", businessId);
 

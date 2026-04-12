@@ -96,6 +96,7 @@ export interface GreetingSettings {
 export interface WorkflowSettings {
   require_confirmation_for_orders:   boolean;
   require_confirmation_for_bookings: boolean;
+  auto_accept_orders:                boolean;  // skip staff approval, go straight to accepted
   send_sms_confirmation:             boolean;
   sms_confirmation_number:           string | null;
   booking_lead_time_hours:           number;
@@ -104,6 +105,8 @@ export interface WorkflowSettings {
   delivery_fee:                      string;
   min_order_value:                   string;
   cancellation_window_hours:         number;
+  avg_prep_time_minutes:             number;   // used for estimated ready time
+  avg_delivery_time_minutes:         number;
 }
 
 export interface CustomPermissions {
@@ -251,6 +254,7 @@ export const DEFAULT_GREETING: GreetingSettings = {
 export const DEFAULT_WORKFLOW: WorkflowSettings = {
   require_confirmation_for_orders:   true,
   require_confirmation_for_bookings: true,
+  auto_accept_orders:                false,
   send_sms_confirmation:             false,
   sms_confirmation_number:           null,
   booking_lead_time_hours:           1,
@@ -259,6 +263,8 @@ export const DEFAULT_WORKFLOW: WorkflowSettings = {
   delivery_fee:                      "2.00",
   min_order_value:                   "15.00",
   cancellation_window_hours:         2,
+  avg_prep_time_minutes:             20,
+  avg_delivery_time_minutes:         40,
 };
 
 export const DEFAULT_PERMISSIONS: CustomPermissions = {
