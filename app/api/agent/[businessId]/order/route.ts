@@ -14,12 +14,14 @@ import { z } from "zod";
 
 const schema = z.object({
   customer_name:        z.string().min(1).max(100),
+  // phone: accept customer_phone (portal) or customer_phone from agent
   customer_phone:       z.string().max(30).optional().nullable(),
+  caller_id:            z.string().max(100).optional().nullable(), // ElevenLabs system-provided
   order_type:           z.enum(["delivery", "takeaway"]).default("takeaway"),
-  // items_text is the primary field when called from the voice agent
-  // (ElevenLabs tool schemas don't support nested object arrays well)
+  // items_text / coffee_type: plain string from voice agent e.g. "2x Espresso (sketo), 1x Croissant"
   items_text:           z.string().max(1000).optional(),
-  // items array is accepted from the portal / direct API calls
+  coffee_type:          z.string().max(1000).optional(), // alias used by Demo Caffe-style agents
+  // items array: from portal / direct API calls
   items:                z.array(z.object({
     name:     z.string().min(1),
     quantity: z.number().int().min(1).max(50),
@@ -27,7 +29,11 @@ const schema = z.object({
   delivery_address:     z.string().max(300).optional().nullable(),
   special_instructions: z.string().max(500).optional().nullable(),
   preferred_language:   z.enum(["el", "en"]).optional().default("el"),
-}).refine(
+}).transform((d) => ({
+  ...d,
+  // Normalise: coffee_type is an alias for items_text
+  items_text: d.items_text ?? d.coffee_type,
+})).refine(
   (d) => (d.items_text && d.items_text.trim().length > 0) || (d.items && d.items.length > 0),
   { message: "Either items_text or items must be provided" }
 );
@@ -151,7 +157,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     .single();
 
   if (oErr || !order) {
-    return NextResponse.json({ success: false, message: "Failed to save order" }, { status: 500 });
+    return NextResponse.json({ ok: false, success: false, message: "Failed to save order" }, { status: 500 });
   }
 
   // Write status history
@@ -174,7 +180,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     ? `Order placed successfully! Reference: ${ref}. Estimated delivery time: ${totalMins} minutes.`
     : `Order placed successfully! Reference: ${ref}. Ready for pickup in ${prepMins} minutes.`;
 
+  // ok=true mirrors the Demo Caffe webhook response so agents checking either field work
   return NextResponse.json({
+    ok:         true,
     success:    true,
     order_id:   order.id,
     reference:  ref,

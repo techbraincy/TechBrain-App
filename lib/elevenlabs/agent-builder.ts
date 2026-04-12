@@ -277,28 +277,9 @@ function buildPermissionsSection(business: Business): string {
  * This prompt is sent to ElevenLabs as the agent's instructions.
  */
 export function buildSystemPrompt(business: Business, agent: Partial<ElevenLabsAgent> = {}): string {
-  const agentName = agent.agent_name ?? `${business.business_name} Assistant`;
-  const personality = agent.personality ?? "professional";
-  const tone = agent.tone ?? "helpful";
+  const agentName          = agent.agent_name ?? `${business.business_name} Assistant`;
   const customInstructions = business.custom_agent_instructions ?? "";
 
-  const categoryDescriptions: Record<string, string> = {
-    restaurant: "a restaurant that serves food and beverages",
-    cafe:       "a café/coffee shop serving coffee, beverages, and light food",
-    clinic:     "a medical clinic / healthcare provider",
-    salon:      "a beauty salon / hair & beauty services",
-    hotel:      "a hotel / hospitality establishment",
-    retail:     "a retail store",
-    service:    "a service business",
-    other:      "a business",
-  };
-
-  const businessDesc = categoryDescriptions[business.business_category] ?? "a business";
-
-  const greetingEl = business.greeting_settings?.greeting_el ??
-    `Γεια σας! Είμαι ο βοηθός του ${business.business_name}. Πώς μπορώ να σας εξυπηρετήσω;`;
-  const greetingEn = business.greeting_settings?.greeting_en ??
-    `Hello! I'm the assistant for ${business.business_name}. How can I help you today?`;
   const farewellEl = business.greeting_settings?.farewell_el ?? "Ευχαριστούμε! Καλή συνέχεια!";
   const farewellEn = business.greeting_settings?.farewell_en ?? "Thank you for calling! Have a great day!";
 
@@ -309,91 +290,79 @@ export function buildSystemPrompt(business: Business, agent: Partial<ElevenLabsA
   const escalBlock    = buildEscalationSection(business);
   const permBlock     = buildPermissionsSection(business);
 
-  const prompt = `
-You are ${agentName}, the AI voice assistant for ${business.business_name} — ${businessDesc}.
+  const hasOrdering     = business.delivery_enabled || business.takeaway_enabled;
+  const hasReservations = business.reservation_enabled || business.meetings_enabled;
+  const isCafe          = business.business_category === "cafe";
 
-PERSONALITY & TONE:
-- Personality: ${personality}
-- Tone: ${tone}
-- You are professional, warm, and efficient.
-- Keep responses concise and clear — this is a voice call.
-- Never use bullet points or markdown in speech — speak in natural sentences.
-- Ask ONE question at a time. Never ask for multiple pieces of information in a single sentence.
-- Wait for the customer to answer before moving to the next question.
+  // ── Sugar preference section (for cafes / coffee shops) ───────────────────
+  const sugarBlock = isCafe ? `
+Sugar options (ask for each drink if not specified — default is sketo):
+- Sketo = no sugar (DEFAULT)
+- Oligh = a little sugar
+- Metrio = medium sugar
+- Glyko = sweet / a lot of sugar
 
-BUSINESS INFORMATION:
-- Name: ${business.business_name}
-- Category: ${business.business_category}
-${business.phone_number ? `- Phone: ${business.phone_number}` : ""}
+When writing the items_text field always include the sugar preference per drink, e.g. "2x Freddo Espresso (sketo), 1x Cappuccino (metrio)". Always write item names in English regardless of conversation language.` : "";
+
+  // ── Build the prompt ───────────────────────────────────────────────────────
+  const prompt = `You are ${agentName}, a friendly phone assistant for ${business.business_name}. Be warm and concise.
+
+LANGUAGE RULE: Detect the language the customer is speaking and respond ONLY in that language throughout the entire conversation. If the customer speaks Greek, respond in Greek. If the customer speaks English, respond in English. Never mix languages.
+- When in Greek: every word must be in Greek. Never let English phrases leak into a Greek conversation.
+- When in English: stay in English even for acknowledgements.
+- Default to Greek if unclear.
+- Farewell (Greek): "${farewellEl}"
+- Farewell (English): "${farewellEn}"
+
+${business.address || business.phone_number ? `BUSINESS INFO:
 ${business.address ? `- Address: ${business.address}` : ""}
-${business.google_maps_link ? `- Location/Maps: ${business.google_maps_link}` : ""}
-${business.service_area ? `- Service area: ${business.service_area}` : ""}
+${business.phone_number ? `- Phone: ${business.phone_number}` : ""}
+${business.service_area ? `- Delivery area: ${business.service_area}` : ""}` : ""}
 
-OPENING HOURS:
-${hoursBlock || "Contact the business for current hours."}
+${hoursBlock ? `OPENING HOURS:\n${hoursBlock}` : ""}
 
-${servicesBlock ? `SERVICES / MENU:\n${servicesBlock}` : ""}
+${servicesBlock ? `MENU / SERVICES:\n${servicesBlock}` : ""}
+${sugarBlock}
 
 ${capBlock}
 
 ${faqBlock ? `FREQUENTLY ASKED QUESTIONS:\n${faqBlock}` : ""}
 
 ${escalBlock}
-
 ${permBlock}
+${customInstructions ? `ADDITIONAL INSTRUCTIONS:\n${customInstructions}` : ""}
 
-${customInstructions ? `ADDITIONAL BUSINESS INSTRUCTIONS:\n${customInstructions}` : ""}
-
-LANGUAGE RULES — CRITICAL:
-- You speak BOTH Greek (Ελληνικά) and English fluently.
-- ALWAYS detect and match the language the customer is using.
-- If the customer speaks Greek, respond entirely in Greek.
-- If the customer speaks English, respond entirely in English.
-- If unclear, default to Greek first.
-- Do not mix languages in the same response unless quoting something (e.g., a product name).
-- Greek greeting: "${greetingEl}"
-- English greeting: "${greetingEn}"
-- Greek farewell: "${farewellEl}"
-- English farewell: "${farewellEn}"
-
-CALL HANDLING:
-- Start by greeting the customer in Greek (since most callers are Greek speakers).
-- Listen carefully and identify what the customer needs before responding.
-- If you cannot help with something, say so clearly and offer alternatives.
-- Never make up information — if unsure, say you don't know and suggest they contact the business.
-- Keep the conversation focused and efficient — respect the caller's time.
-- Always confirm important information (names, times, orders) back to the customer.
-- End calls politely with the appropriate farewell in the customer's language.
-
-CURRENT DATE RULE (CRITICAL):
+CURRENT DATE RULE (FINAL):
 - Call get_current_datetime ONLY when the customer uses a relative date expression: today, tonight, tomorrow, this Saturday, next Friday, this weekend, next week.
-- Do NOT call get_current_datetime when the customer states an exact date (e.g. "April 20", "the 25th", "2026-04-20").
+- Do NOT call get_current_datetime when the customer states an exact date (e.g. "April 20", "the 25th").
 - Never use your own memory or assumptions to determine the current date.
-- If get_current_datetime fails, ask: "Just to confirm, what date did you have in mind?"
+- If get_current_datetime fails, ask naturally: "Just to confirm, what date did you have in mind?"
+- Never mention this tool to the customer.
 
 SILENT TOOL RULE (STRICT):
 - Never narrate tool calls. Do NOT say "Let me check", "One moment", "Let me look that up", or any similar phrase before or during tool execution.
 - Call all tools silently and immediately. Speak only after you have a result.
 
 TOOL USAGE:
-- "get_current_datetime": Resolve relative dates only. Never mention this tool to the customer.
-- "check_hours": Call when asked about opening hours or whether the business is open.
-- "get_menu": Call when asked about the menu, prices, or available items. Read relevant items naturally.
-- "check_availability": Call before booking to verify the slot is free. If unavailable, offer alternatives.
-- "book_reservation": Call ONLY after check_availability confirms available=true AND customer explicitly confirms all details.
-- "create_order": Call ONLY after all order details are collected and customer explicitly confirms.
-- "cancel_reservation": Call to cancel a booking by phone number and date.
-- "reschedule_reservation": Call to move an existing booking to a new date/time.
-- "end_call": Call immediately after delivering the final farewell following a completed action (booking/order/cancellation/reschedule).
-- After any successful action: read the confirmation message aloud in the customer's language including the reference number, deliver the farewell, then call end_call.
-- If a tool fails: apologize and offer to try again or suggest the customer call directly.
+- get_current_datetime: resolve relative dates only, never mention to customer.
+- check_hours: when asked about opening hours or whether the business is open.
+- get_menu: when asked about menu, prices, or available items. Read items naturally.${hasReservations ? `
+- check_availability: call BEFORE booking to verify slot is free. If unavailable, offer alternatives.
+- book_reservation: call ONLY after check_availability=available AND customer confirms ALL details (name, phone, date, time, party size).
+- cancel_reservation: cancel booking by phone number and date.
+- reschedule_reservation: move booking to new date/time.` : ""}${hasOrdering ? `
+- create_order: call ONLY after ALL details collected and customer confirms. Pass items_text as a plain string e.g. "2x Espresso${isCafe ? " (sketo)" : ""}, 1x Croissant".` : ""}
+- end_call: call immediately after delivering the farewell following any completed action.
 
-IMPORTANT RESTRICTIONS:
-- Never provide medical, legal, or financial advice.
-- Never share personal customer data with third parties.
-- Never accept payment information over the phone.
-- Always stay within your role as the ${business.business_name} assistant.
-`.trim();
+After any successful tool action:
+1. Read the confirmation message aloud in the customer's language, including the reference number.
+2. Say the farewell in their language.
+3. Call end_call.
+
+If a tool returns ok=false or success=false: read the message field back to the customer, then ask for the missing or corrected information.
+If a tool call fails entirely: apologize and suggest the customer call the business directly.
+
+IMPORTANT: Only call tools with real values the customer actually said. Never make up or guess any value.`.trim();
 
   return prompt;
 }
@@ -477,6 +446,7 @@ export function buildTools(business: Business): unknown[] {
 
   // ── create_order ───────────────────────────────────────────────────────────
   if (hasOrdering) {
+    const isCafe = business.business_category === "cafe";
     const orderTypes: string[] = [];
     if (business.delivery_enabled) orderTypes.push("delivery");
     if (business.takeaway_enabled) orderTypes.push("takeaway");
@@ -497,31 +467,35 @@ export function buildTools(business: Business): unknown[] {
           properties: {
             customer_name: {
               type:        "string",
-              description: "Customer's full name",
+              description: "The full name of the customer",
             },
             customer_phone: {
-              type:        "string",
-              description: "Customer's phone number with country code (e.g. +30 6901234567)",
+              type:              "string",
+              description:       "The mobile phone number provided by the customer",
+            },
+            caller_id: {
+              type:                 "string",
+              description:          "The caller's phone number, auto-filled by the system",
+              is_system_provided:   true,
             },
             order_type: {
               type:        "string",
-              description: `Order type: ${orderTypes.join(" or ")}`,
+              description: `The type of order: ${orderTypes.join(" or ")}`,
+              enum:        orderTypes,
             },
             items_text: {
               type:        "string",
-              description: "Plain text summary of all ordered items and quantities, e.g. '2x Espresso, 1x Croissant'",
+              description: isCafe
+                ? "The items ordered with sugar preferences, e.g. '2x Freddo Espresso (sketo), 1x Cappuccino (metrio)'"
+                : "The items ordered with quantities, e.g. '2x Margherita Pizza, 1x Caesar Salad'",
             },
             delivery_address: {
               type:        "string",
-              description: "Full delivery address — required only for delivery orders",
+              description: "The full delivery address — required only for delivery orders",
             },
             special_instructions: {
               type:        "string",
-              description: "Any special requests or dietary requirements from the customer",
-            },
-            preferred_language: {
-              type:        "string",
-              description: "Language of the conversation: el or en",
+              description: "Any special instructions from the customer",
             },
           },
           required: ["customer_name", "order_type", "items_text"],
@@ -686,27 +660,41 @@ export function buildTools(business: Business): unknown[] {
 
 /**
  * Builds the full ElevenLabs agent creation/update payload.
+ *
+ * Voice/ASR/turn settings are modelled on the working Demo Caffe Order Bot:
+ *  - eleven_flash_v2_5 (faster, lower latency than turbo)
+ *  - ulaw_8000 audio format (Twilio phone call optimised)
+ *  - scribe_realtime ASR at high quality
+ *  - turn_eagerness="eager" + speculative_turn=true (snappy response)
+ *  - optimize_streaming_latency=4 (max speed on phone)
  */
 export function buildAgentConfig(
   business: Business,
   agent: Partial<ElevenLabsAgent> = {}
 ): ELAgentConfig {
-  const agentName    = agent.agent_name ?? `${business.business_name} Assistant`;
-  const voiceId      = business.agent_voice_settings?.voice_id || DEFAULT_VOICE_ID;
-  const stability    = business.agent_voice_settings?.stability    ?? 0.5;
-  const simBoost     = business.agent_voice_settings?.similarity_boost ?? 0.75;
-  const style        = business.agent_voice_settings?.style        ?? 0.0;
-  const speed        = business.agent_voice_settings?.speed        ?? 1.0;
+  const agentName = agent.agent_name ?? `${business.business_name} Assistant`;
+  const voiceId   = business.agent_voice_settings?.voice_id || DEFAULT_VOICE_ID;
+
+  // Demo Caffe-proven defaults — override with per-business voice settings if set
+  const stability  = business.agent_voice_settings?.stability    ?? 1.0;
+  const simBoost   = business.agent_voice_settings?.similarity_boost ?? 1.0;
+  const style      = business.agent_voice_settings?.style        ?? 0.0;
+  const speed      = business.agent_voice_settings?.speed        ?? 1.2;
 
   const systemPrompt = buildSystemPrompt(business, agent);
   const tools        = buildTools(business);
 
   const greetingEl = business.greeting_settings?.greeting_el ??
-    `Γεια σας! Είμαι ο βοηθός του ${business.business_name}. Πώς μπορώ να σας εξυπηρετήσω;`;
+    `Ναι παρακαλώ;`;
 
   return {
     name: agentName,
     conversation_config: {
+      asr: {
+        quality:  "high",
+        provider: "scribe_realtime",
+        user_input_audio_format: "ulaw_8000",
+      },
       agent: {
         prompt: {
           prompt: systemPrompt,
@@ -714,22 +702,23 @@ export function buildAgentConfig(
           tools,
         },
         first_message: greetingEl,
-        language:      "el",   // Primary language; agent handles both via prompt
+        language:      "el",
       },
       tts: {
-        voice_id:                    voiceId,
-        model_id:                    "eleven_turbo_v2_5",
-        optimize_streaming_latency:  3,
+        voice_id:                   voiceId,
+        model_id:                   "eleven_flash_v2_5",
+        agent_output_audio_format:  "ulaw_8000",
+        optimize_streaming_latency: 4,
         stability,
-        similarity_boost:            simBoost,
+        similarity_boost:           simBoost,
         style,
         speed,
       },
-      stt: {
-        user_input_audio_format: "pcm_16000",
-      },
       turn: {
-        turn_timeout: 7,
+        turn_timeout:    2.0,
+        turn_eagerness:  "eager",
+        speculative_turn: true,
+        turn_model:      "turn_v2",
       },
     },
   };

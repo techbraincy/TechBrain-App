@@ -52,6 +52,11 @@ export interface ELVoice {
 export interface ELAgentConfig {
   name: string;
   conversation_config: {
+    asr?: {
+      quality?:               string; // "high"
+      provider?:              string; // "scribe_realtime"
+      user_input_audio_format?: string;
+    };
     agent: {
       prompt: {
         prompt: string;
@@ -62,19 +67,20 @@ export interface ELAgentConfig {
       language: string;
     };
     tts: {
-      voice_id:                    string;
-      model_id:                    string;
-      optimize_streaming_latency?: number;
-      stability?:                  number;
-      similarity_boost?:           number;
-      style?:                      number;
-      speed?:                      number;
-    };
-    stt?: {
-      user_input_audio_format?: string;
+      voice_id:                      string;
+      model_id:                      string;
+      agent_output_audio_format?:    string; // "ulaw_8000" for phone, "pcm_16000" for web
+      optimize_streaming_latency?:   number;
+      stability?:                    number;
+      similarity_boost?:             number;
+      style?:                        number;
+      speed?:                        number;
     };
     turn?: {
-      turn_timeout?: number;
+      turn_timeout?:    number;
+      turn_eagerness?:  string; // "eager" | "relaxed"
+      speculative_turn?: boolean;
+      turn_model?:      string; // "turn_v2"
     };
   };
   platform_settings?: {
