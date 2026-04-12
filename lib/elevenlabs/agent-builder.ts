@@ -318,6 +318,15 @@ CALL HANDLING:
 - Always confirm important information (names, times, orders) back to the customer.
 - End calls politely with the appropriate farewell in the customer's language.
 
+TOOL USAGE — CRITICAL:
+You have tools available to take real actions. Use them correctly:
+- "check_hours": Call this when asked about opening hours or whether the business is open right now.
+- "get_menu": Call this when asked about the menu, prices, or what is available.
+- "create_order": Call this to submit a confirmed order. NEVER call before getting explicit customer confirmation.
+- "create_reservation": Call this to submit a confirmed reservation. NEVER call before getting explicit confirmation.
+- After a tool returns a result, read out the relevant information to the customer in their language.
+- If a tool call fails, apologize and offer to try again or direct the customer to contact the business directly.
+
 IMPORTANT RESTRICTIONS:
 - Never provide medical, legal, or financial advice.
 - Never share personal customer data with third parties.
@@ -326,6 +335,202 @@ IMPORTANT RESTRICTIONS:
 `.trim();
 
   return prompt;
+}
+
+// ─── Tool definitions ─────────────────────────────────────────────────────────
+
+function getAppUrl(): string {
+  const url = process.env.APP_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (!url) return "https://localhost:3000"; // fallback for local dev
+  if (url.startsWith("http")) return url.replace(/\/$/, "");
+  return `https://${url}`;
+}
+
+/**
+ * Builds ElevenLabs webhook tool definitions for all capabilities enabled on this business.
+ * Each tool becomes a callable action the voice agent can invoke mid-conversation.
+ */
+export function buildTools(business: Business): unknown[] {
+  const base = `${getAppUrl()}/api/agent/${business.id}`;
+  const tools: unknown[] = [];
+
+  const hasOrdering = business.delivery_enabled || business.takeaway_enabled;
+  const hasReservations = business.reservation_enabled || business.meetings_enabled;
+  const hasMenu = (business.menu_catalog?.length ?? 0) > 0 || (business.services?.length ?? 0) > 0;
+
+  // ── check_hours ────────────────────────────────────────────────────────────
+  tools.push({
+    type:        "webhook",
+    name:        "check_hours",
+    description: "Check if the business is currently open and retrieve today's opening hours. Call this when a customer asks about opening hours, whether the business is open, or what time it closes.",
+    parameters:  {
+      type:       "object",
+      properties: {},
+      required:   [],
+    },
+    api_schema: {
+      url:    `${base}/hours`,
+      method: "GET",
+      request_body_schema: { type: "object", properties: {} },
+    },
+  });
+
+  // ── get_menu ───────────────────────────────────────────────────────────────
+  if (hasMenu) {
+    tools.push({
+      type:        "webhook",
+      name:        "get_menu",
+      description: "Retrieve the full menu or service list with prices. Call this when a customer asks about what's available, menu items, prices, or services offered.",
+      parameters:  {
+        type:       "object",
+        properties: {},
+        required:   [],
+      },
+      api_schema: {
+        url:    `${base}/menu`,
+        method: "GET",
+        request_body_schema: { type: "object", properties: {} },
+      },
+    });
+  }
+
+  // ── create_order ───────────────────────────────────────────────────────────
+  if (hasOrdering) {
+    const orderTypes: string[] = [];
+    if (business.delivery_enabled) orderTypes.push("delivery");
+    if (business.takeaway_enabled) orderTypes.push("takeaway");
+
+    tools.push({
+      type:        "webhook",
+      name:        "create_order",
+      description: `Place a food/beverage order for the customer. Call this ONLY after the customer has confirmed ALL details: their name, phone number, items with quantities, order type (${orderTypes.join(" or ")}), and delivery address if delivery. Read back the complete order and get explicit confirmation before calling this tool.`,
+      parameters:  {
+        type: "object",
+        properties: {
+          customer_name: {
+            type:        "string",
+            description: "Customer's full name",
+          },
+          customer_phone: {
+            type:        "string",
+            description: "Customer's phone number including country code",
+          },
+          order_type: {
+            type:        "string",
+            enum:        orderTypes,
+            description: `Whether this is a ${orderTypes.join(" or ")} order`,
+          },
+          items: {
+            type: "array",
+            description: "List of ordered items with quantities",
+            items: {
+              type: "object",
+              properties: {
+                name:     { type: "string", description: "Item name exactly as on the menu" },
+                quantity: { type: "number", description: "Number of this item" },
+              },
+              required: ["name", "quantity"],
+            },
+          },
+          delivery_address: {
+            type:        "string",
+            description: "Full delivery address (required for delivery orders)",
+          },
+          special_instructions: {
+            type:        "string",
+            description: "Any special requests or dietary requirements",
+          },
+          preferred_language: {
+            type:        "string",
+            enum:        ["el", "en"],
+            description: "Language of the conversation",
+          },
+        },
+        required: ["customer_name", "order_type", "items"],
+      },
+      api_schema: {
+        url:    `${base}/order`,
+        method: "POST",
+        request_body_schema: {
+          type: "object",
+          properties: {
+            customer_name:        { type: "string" },
+            customer_phone:       { type: "string" },
+            order_type:           { type: "string" },
+            items:                { type: "array" },
+            delivery_address:     { type: "string" },
+            special_instructions: { type: "string" },
+            preferred_language:   { type: "string" },
+          },
+        },
+      },
+    });
+  }
+
+  // ── create_reservation ─────────────────────────────────────────────────────
+  if (hasReservations) {
+    const ws = business.workflow_settings;
+    const maxParty = ws?.max_party_size ?? 10;
+
+    tools.push({
+      type:        "webhook",
+      name:        "create_reservation",
+      description: `Make a table reservation or book an appointment. Call this ONLY after the customer has confirmed ALL details: their name, phone number, date (YYYY-MM-DD format), time (HH:MM format), and party size (max ${maxParty}). Read back the details and get explicit confirmation before calling this tool.`,
+      parameters:  {
+        type: "object",
+        properties: {
+          customer_name: {
+            type:        "string",
+            description: "Customer's full name",
+          },
+          customer_phone: {
+            type:        "string",
+            description: "Customer's phone number including country code",
+          },
+          reservation_date: {
+            type:        "string",
+            description: "Reservation date in YYYY-MM-DD format (e.g. 2025-06-15)",
+          },
+          reservation_time: {
+            type:        "string",
+            description: "Reservation time in HH:MM format (e.g. 19:30)",
+          },
+          party_size: {
+            type:        "number",
+            description: `Number of people (1–${maxParty})`,
+          },
+          notes: {
+            type:        "string",
+            description: "Special requests, allergies, occasion notes",
+          },
+          preferred_language: {
+            type:        "string",
+            enum:        ["el", "en"],
+            description: "Language of the conversation",
+          },
+        },
+        required: ["customer_name", "reservation_date", "reservation_time", "party_size"],
+      },
+      api_schema: {
+        url:    `${base}/reservation`,
+        method: "POST",
+        request_body_schema: {
+          type: "object",
+          properties: {
+            customer_name:      { type: "string" },
+            customer_phone:     { type: "string" },
+            reservation_date:   { type: "string" },
+            reservation_time:   { type: "string" },
+            party_size:         { type: "number" },
+            notes:              { type: "string" },
+            preferred_language: { type: "string" },
+          },
+        },
+      },
+    });
+  }
+
+  return tools;
 }
 
 /**
@@ -343,6 +548,7 @@ export function buildAgentConfig(
   const speed        = business.agent_voice_settings?.speed        ?? 1.0;
 
   const systemPrompt = buildSystemPrompt(business, agent);
+  const tools        = buildTools(business);
 
   const greetingEl = business.greeting_settings?.greeting_el ??
     `Γεια σας! Είμαι ο βοηθός του ${business.business_name}. Πώς μπορώ να σας εξυπηρετήσω;`;
@@ -354,7 +560,7 @@ export function buildAgentConfig(
         prompt: {
           prompt: systemPrompt,
           llm:    "gpt-4o-mini",
-          tools:  [],
+          tools,
         },
         first_message: greetingEl,
         language:      "el",   // Primary language; agent handles both via prompt
