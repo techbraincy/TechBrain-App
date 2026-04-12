@@ -475,10 +475,6 @@ export function buildTools(business: Business): unknown[] {
               type:              "string",
               description:       "The mobile phone number provided by the customer",
             },
-            caller_id: {
-              type:        "string",
-              description: "The caller's phone number if available (optional)",
-            },
             order_type: {
               type:        "string",
               description: `The type of order: ${orderTypes.join(" or ")}`,
