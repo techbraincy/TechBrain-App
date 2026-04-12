@@ -125,14 +125,16 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { data: reservation, error: rErr } = await supabase
     .from("business_reservations")
     .insert({
-      business_id:      businessId,
-      customer_name:    body.data.customer_name,
-      customer_phone:   phone ?? null,
-      reservation_date: body.data.resolved_date,
-      reservation_time: body.data.resolved_time.slice(0, 5), // HH:MM
-      party_size:       body.data.party_size,
-      notes:            body.data.notes ?? null,
-      status:           "pending",
+      business_id:        businessId,
+      customer_name:      body.data.customer_name,
+      customer_phone:     phone ?? null,
+      customer_id:        customerId,
+      preferred_language: body.data.preferred_language,
+      reservation_date:   body.data.resolved_date,
+      reservation_time:   body.data.resolved_time.slice(0, 5), // HH:MM
+      party_size:         body.data.party_size,
+      notes:              body.data.notes ?? null,
+      status:             "pending",
     })
     .select("id")
     .single();
