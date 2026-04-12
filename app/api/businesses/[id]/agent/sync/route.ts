@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { getBusinessById, getAgentByBusinessId, upsertAgent, setAgentStatus } from "@/lib/db/queries/businesses";
-import { createAgent, updateAgent as elUpdateAgent } from "@/lib/elevenlabs/client";
+import { createAgent, updateAgent as elUpdateAgent, deleteAgent } from "@/lib/elevenlabs/client";
 import { buildAgentConfig } from "@/lib/elevenlabs/agent-builder";
 import type { ElevenLabsAgent } from "@/types/agent";
 
@@ -56,8 +56,13 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
     try {
       if (elAgentId) {
-        // Update existing ElevenLabs agent
-        await elUpdateAgent(elAgentId, config);
+        // Delete the old agent and recreate it from scratch.
+        // ElevenLabs PATCH merges tool properties by name, so stale fields
+        // (e.g. is_system_provided on caller_id) persist across updates.
+        // A fresh create guarantees a clean config every time.
+        await deleteAgent(elAgentId).catch(() => {}); // ignore if already gone
+        const created = await createAgent(config);
+        elAgentId = created.agent_id;
       } else {
         // Create new ElevenLabs agent
         const created = await createAgent(config);
