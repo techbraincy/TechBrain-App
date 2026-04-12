@@ -44,12 +44,21 @@ interface WizardData {
   // Step 3
   services:     ServiceItem[];
   menu_catalog: ServiceItem[];
-  // Step 4
+  // Step 4 — capabilities
   reservation_enabled: boolean;
   meetings_enabled:    boolean;
   delivery_enabled:    boolean;
   takeaway_enabled:    boolean;
   faq:                 FAQItem[];
+  // Step 4 — workflow settings
+  max_party_size:            string;
+  booking_lead_time_hours:   string;
+  cancellation_window_hours: string;
+  avg_prep_time_minutes:     string;
+  avg_delivery_time_minutes: string;
+  delivery_fee:              string;
+  min_order_value:           string;
+  delivery_radius_km:        string;
   // Step 5
   custom_agent_instructions: string;
   escalation_human_number:   string;
@@ -415,6 +424,9 @@ function Step4({ data, onChange }: {
     onChange("faq", data.faq.filter((f) => f.id !== id));
   }
 
+  const hasOrdering     = data.delivery_enabled || data.takeaway_enabled;
+  const hasReservations = data.reservation_enabled || data.meetings_enabled;
+
   return (
     <div className="space-y-6">
       {/* Capabilities */}
@@ -447,6 +459,93 @@ function Step4({ data, onChange }: {
           />
         </div>
       </div>
+
+      {/* Reservation settings */}
+      {hasReservations && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-800">Reservation Settings</h3>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Input
+              label="Max party size"
+              value={data.max_party_size}
+              onChange={(v) => onChange("max_party_size", v)}
+              placeholder="20"
+              type="number"
+              hint="Maximum guests per booking"
+            />
+            <Input
+              label="Advance notice (hours)"
+              value={data.booking_lead_time_hours}
+              onChange={(v) => onChange("booking_lead_time_hours", v)}
+              placeholder="1"
+              type="number"
+              hint="Min hours before booking"
+            />
+            <Input
+              label="Cancellation window (hours)"
+              value={data.cancellation_window_hours}
+              onChange={(v) => onChange("cancellation_window_hours", v)}
+              placeholder="2"
+              type="number"
+              hint="Min hours before to cancel"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Order settings */}
+      {hasOrdering && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-800">Order Settings</h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input
+              label="Avg prep time (minutes)"
+              value={data.avg_prep_time_minutes}
+              onChange={(v) => onChange("avg_prep_time_minutes", v)}
+              placeholder="20"
+              type="number"
+              hint="Agent tells customers this estimate"
+            />
+            {data.delivery_enabled && (
+              <Input
+                label="Avg delivery time (minutes)"
+                value={data.avg_delivery_time_minutes}
+                onChange={(v) => onChange("avg_delivery_time_minutes", v)}
+                placeholder="30"
+                type="number"
+                hint="Added on top of prep time"
+              />
+            )}
+            {data.delivery_enabled && (
+              <Input
+                label="Delivery fee (€)"
+                value={data.delivery_fee}
+                onChange={(v) => onChange("delivery_fee", v)}
+                placeholder="2.00"
+                hint="Leave blank if free"
+              />
+            )}
+            {data.delivery_enabled && (
+              <Input
+                label="Min order value (€)"
+                value={data.min_order_value}
+                onChange={(v) => onChange("min_order_value", v)}
+                placeholder="10.00"
+                hint="Leave blank if no minimum"
+              />
+            )}
+            {data.delivery_enabled && (
+              <Input
+                label="Delivery radius (km)"
+                value={data.delivery_radius_km}
+                onChange={(v) => onChange("delivery_radius_km", v)}
+                placeholder="5"
+                hint="Leave blank if no restriction"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* FAQ */}
       <div>
@@ -692,8 +791,9 @@ function Step7({ data }: { data: WizardData }) {
 export default function OnboardingWizard() {
   const router = useRouter();
   const [step, setStep]       = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors]   = useState<Record<string, string>>({});
+  const [loading, setLoading]       = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
+  const [errors, setErrors]         = useState<Record<string, string>>({});
 
   const [data, setData] = useState<WizardData>({
     business_name:     "",
@@ -709,13 +809,21 @@ export default function OnboardingWizard() {
     delivery_enabled:    false,
     takeaway_enabled:    false,
     faq:               [],
+    max_party_size:            "20",
+    booking_lead_time_hours:   "1",
+    cancellation_window_hours: "2",
+    avg_prep_time_minutes:     "20",
+    avg_delivery_time_minutes: "30",
+    delivery_fee:              "",
+    min_order_value:           "",
+    delivery_radius_km:        "",
     custom_agent_instructions: "",
     escalation_human_number:  "",
     agent_name:    "",
     personality:   "professional",
     tone:          "helpful",
-    greeting_el:   "Γεια σας! Είμαι ο βοηθός σας. Πώς μπορώ να σας εξυπηρετήσω;",
-    greeting_en:   "Hello! I'm your assistant. How can I help you today?",
+    greeting_el:   "Ναι παρακαλώ;",
+    greeting_en:   "Hello, how can I help you?",
     farewell_el:   "Ευχαριστούμε! Καλή συνέχεια!",
     farewell_en:   "Thank you for calling! Have a great day!",
   });
@@ -757,6 +865,7 @@ export default function OnboardingWizard() {
 
     try {
       // 1. Create the business record
+      setLoadingStep("Creating business...");
       const res = await fetch("/api/businesses", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -775,7 +884,23 @@ export default function OnboardingWizard() {
       }
       const business = await res.json();
 
+      // Build workflow_settings from form data
+      const workflow_settings: Record<string, unknown> = {
+        auto_accept_orders:           false,
+        require_confirmation_for_orders:   true,
+        require_confirmation_for_bookings: true,
+      };
+      if (data.max_party_size)            workflow_settings.max_party_size            = Number(data.max_party_size);
+      if (data.booking_lead_time_hours)   workflow_settings.booking_lead_time_hours   = Number(data.booking_lead_time_hours);
+      if (data.cancellation_window_hours) workflow_settings.cancellation_window_hours = Number(data.cancellation_window_hours);
+      if (data.avg_prep_time_minutes)     workflow_settings.avg_prep_time_minutes     = Number(data.avg_prep_time_minutes);
+      if (data.avg_delivery_time_minutes) workflow_settings.avg_delivery_time_minutes = Number(data.avg_delivery_time_minutes);
+      if (data.delivery_fee)              workflow_settings.delivery_fee              = data.delivery_fee;
+      if (data.min_order_value)           workflow_settings.min_order_value           = data.min_order_value;
+      if (data.delivery_radius_km)        workflow_settings.delivery_radius_km        = Number(data.delivery_radius_km);
+
       // 2. Update with full details
+      setLoadingStep("Saving configuration...");
       await fetch(`/api/businesses/${business.id}`, {
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -788,11 +913,12 @@ export default function OnboardingWizard() {
           meetings_enabled:         data.meetings_enabled,
           delivery_enabled:         data.delivery_enabled,
           takeaway_enabled:         data.takeaway_enabled,
+          workflow_settings,
           custom_agent_instructions: data.custom_agent_instructions || null,
           escalation_rules: {
             escalate_on_complaint:       true,
             escalate_on_special_request: true,
-            human_handoff_number:        data.escalation_human_number,
+            human_handoff_number:        data.escalation_human_number || null,
             escalation_triggers:         ["angry", "complaint", "emergency", "legal"],
             max_failed_attempts:         3,
           },
@@ -818,12 +944,24 @@ export default function OnboardingWizard() {
         }),
       });
 
-      // 4. Redirect to the business page
+      // 4. Sync the ElevenLabs agent (creates it automatically)
+      setLoadingStep("Creating AI agent...");
+      const syncRes = await fetch(`/api/businesses/${business.id}/agent/sync`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!syncRes.ok) {
+        // Non-fatal — agent can be synced manually from the dashboard
+        console.warn("[onboarding] Agent sync failed:", await syncRes.text());
+      }
+
+      // 5. Redirect to the business page
       router.push(`/voice-agent/${business.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       setErrors({ submit: msg });
       setLoading(false);
+      setLoadingStep("");
     }
   }
 
@@ -923,12 +1061,12 @@ export default function OnboardingWizard() {
             {loading ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Creating...
+                {loadingStep || "Creating..."}
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Create Business
+                Create &amp; Launch Agent
               </>
             )}
           </button>
