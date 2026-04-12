@@ -104,71 +104,101 @@ function formatFAQBlock(business: Business): string {
 
 function buildCapabilitiesSection(business: Business): string {
   const lines: string[] = [];
+  const ws = business.workflow_settings;
 
-  if (business.reservation_enabled) {
-    const ws = business.workflow_settings;
-    lines.push(
-      "RESERVATIONS / ΚΡΑΤΗΣΕΙΣ:\n" +
-      "- You CAN accept table reservations / bookings.\n" +
-      `- Minimum ${ws?.booking_lead_time_hours ?? 1} hour(s) advance notice required.\n` +
-      `- Maximum party size: ${ws?.max_party_size ?? 10} people.\n` +
-      `- Cancellations allowed up to ${ws?.cancellation_window_hours ?? 2} hours before.\n` +
-      "- Always collect ALL of the following: full name, phone number, desired date, time, number of guests, any special requests.\n" +
-      "- Read the reservation details back and ask for confirmation before finalising.\n" +
-      "- After confirming, tell the customer their reservation is PENDING — staff will confirm it.\n" +
-      "- Do NOT tell the customer the reservation is confirmed — it is pending review."
+  // ── Ordering ────────────────────────────────────────────────────────────────
+  if (business.delivery_enabled || business.takeaway_enabled) {
+    const bothEnabled = business.delivery_enabled && business.takeaway_enabled;
+    const orderSection: string[] = ["TAKING ORDERS — STEP-BY-STEP CONVERSATION FLOW:"];
+
+    if (bothEnabled) {
+      orderSection.push(
+        "Step 1 — Ask the customer what type of order they want: delivery or takeaway."
+      );
+    } else if (business.delivery_enabled) {
+      orderSection.push("Step 1 — This is a delivery-only business.");
+    } else {
+      orderSection.push("Step 1 — This is a takeaway-only business.");
+    }
+
+    orderSection.push(
+      "Step 2 — Take the order items. Ask what they would like to order. Let them list all items. If they seem done, ask 'Is there anything else you would like to add?'",
+      "Step 3 — Ask for their full name.",
+      "Step 4 — Ask for their phone number."
     );
+
+    if (business.delivery_enabled) {
+      if (bothEnabled) {
+        orderSection.push("Step 5 — If delivery: ask for the full delivery address (street, number, city). Skip this step for takeaway.");
+      } else {
+        orderSection.push("Step 5 — Ask for the full delivery address (street, number, city).");
+      }
+    }
+
+    orderSection.push(
+      "Step 6 — Ask if they have any special instructions or dietary requirements (allergies, extra sauce, etc.).",
+      "Step 7 — Read the COMPLETE order back to the customer: type, all items with quantities, name, phone" +
+        (business.delivery_enabled ? ", delivery address" : "") +
+        ", and any special instructions. Ask: 'Is everything correct?'",
+      "Step 8 — Only after they confirm: call the create_order tool.",
+      "Step 9 — Read out the confirmation message returned by the tool, including the order reference number.",
+      "IMPORTANT: Do NOT skip any step. Do NOT submit the order until the customer explicitly confirms.",
+      "IMPORTANT: Do NOT tell the customer the order is accepted or confirmed — it is pending staff review."
+    );
+
+    if (ws?.delivery_fee) orderSection.push(`Delivery fee: €${ws.delivery_fee}.`);
+    if (ws?.min_order_value) orderSection.push(`Minimum order value: €${ws.min_order_value}.`);
+    if (ws?.delivery_radius_km) orderSection.push(`Delivery radius: ${ws.delivery_radius_km} km.`);
+    if (business.service_area) orderSection.push(`Delivery area: ${business.service_area}.`);
+    if (ws?.avg_prep_time_minutes) orderSection.push(`Estimated preparation time: about ${ws.avg_prep_time_minutes} minutes.`);
+    if (ws?.avg_delivery_time_minutes) orderSection.push(`Estimated delivery time after preparation: about ${ws.avg_delivery_time_minutes} minutes.`);
+
+    lines.push(orderSection.join("\n"));
   } else {
-    lines.push("RESERVATIONS: We do NOT take reservations. Inform customers politely.");
+    lines.push("ORDERS: This business does NOT accept phone orders. Inform customers politely.");
   }
 
+  // ── Reservations ────────────────────────────────────────────────────────────
+  if (business.reservation_enabled) {
+    const maxParty  = ws?.max_party_size ?? 10;
+    const leadHours = ws?.booking_lead_time_hours ?? 1;
+    const cancelWin = ws?.cancellation_window_hours ?? 2;
+
+    lines.push([
+      "TABLE RESERVATIONS — STEP-BY-STEP CONVERSATION FLOW:",
+      "Step 1 — Ask for the customer's preferred date.",
+      "Step 2 — Ask for the preferred time.",
+      `Step 3 — Ask how many people will be joining (maximum ${maxParty}).`,
+      "Step 4 — Ask for their full name.",
+      "Step 5 — Ask for their phone number.",
+      "Step 6 — Ask if they have any special requests (birthday, allergies, high chair, etc.).",
+      "Step 7 — Read all details back: date, time, number of people, name, phone, and any notes. Ask: 'Shall I confirm this reservation?'",
+      "Step 8 — Only after they confirm: call the create_reservation tool.",
+      "Step 9 — Read out the confirmation message from the tool, including the reference number.",
+      "IMPORTANT: Do NOT submit until the customer explicitly confirms all details.",
+      "IMPORTANT: The reservation is PENDING — staff will call to confirm it. Do not say it is confirmed.",
+      `Note: Reservations require at least ${leadHours} hour(s) advance notice. Cancellations must be made at least ${cancelWin} hours before.`,
+    ].join("\n"));
+  } else {
+    lines.push("RESERVATIONS: This business does NOT accept reservations. Inform customers politely.");
+  }
+
+  // ── Appointments / meetings ──────────────────────────────────────────────────
   if (business.meetings_enabled) {
-    lines.push(
-      "APPOINTMENTS / ΡΑΝΤΕΒΟΥ:\n" +
-      "- You CAN schedule appointments for customers.\n" +
-      "- Always collect ALL of the following: full name, phone number, preferred date, time, service requested.\n" +
-      "- Read back the details and confirm before finalising.\n" +
-      "- After confirming, tell the customer their appointment is PENDING — staff will confirm it."
-    );
-  }
-
-  if (business.delivery_enabled) {
-    const ws = business.workflow_settings;
-    lines.push(
-      "DELIVERY / ΠΑΡΑΔΟΣΗ:\n" +
-      "- You CAN accept delivery orders.\n" +
-      (business.service_area
-        ? `- Delivery area: ${business.service_area}\n`
-        : "") +
-      (ws?.delivery_radius_km ? `- Delivery radius: ${ws.delivery_radius_km} km.\n` : "") +
-      (ws?.delivery_fee ? `- Delivery fee: €${ws.delivery_fee}.\n` : "") +
-      (ws?.min_order_value ? `- Minimum order: €${ws.min_order_value}.\n` : "") +
-      "- Always collect ALL of the following before finalising the order: customer full name, phone number, delivery address, complete list of items with quantities.\n" +
-      "- Read the order back to the customer and ask them to confirm before submitting.\n" +
-      "- After confirming, tell the customer their order has been placed and is PENDING approval from staff.\n" +
-      "- Do NOT tell the customer the order is confirmed or accepted — it is pending until a staff member reviews it.\n" +
-      (ws?.avg_prep_time_minutes
-        ? `- Estimated preparation time: ${ws.avg_prep_time_minutes} minutes.\n`
-        : "") +
-      (ws?.avg_delivery_time_minutes
-        ? `- Estimated delivery time after preparation: ${ws.avg_delivery_time_minutes} minutes.\n`
-        : "")
-    );
-  }
-
-  if (business.takeaway_enabled) {
-    const ws = business.workflow_settings;
-    lines.push(
-      "TAKEAWAY / ΠΑΡΑΛΑΒΗ:\n" +
-      "- You CAN accept takeaway orders.\n" +
-      "- Always collect ALL of the following: customer full name, phone number, complete list of items with quantities, preferred pickup time.\n" +
-      "- Read the order back to the customer and ask them to confirm before submitting.\n" +
-      "- After confirming, tell the customer their order is PENDING and staff will prepare it soon.\n" +
-      "- Do NOT tell the customer the order is confirmed — it is pending until a staff member reviews it.\n" +
-      (ws?.avg_prep_time_minutes
-        ? `- Estimated pickup wait: ${ws.avg_prep_time_minutes} minutes.\n`
-        : "")
-    );
+    const serviceList = business.services?.map((s) => s.name).join(", ");
+    lines.push([
+      "APPOINTMENTS — STEP-BY-STEP CONVERSATION FLOW:",
+      "Step 1 — Ask what service or treatment they need." + (serviceList ? ` Available services: ${serviceList}.` : ""),
+      "Step 2 — Ask for their preferred date.",
+      "Step 3 — Ask for their preferred time.",
+      "Step 4 — Ask for their full name.",
+      "Step 5 — Ask for their phone number.",
+      "Step 6 — Ask if they have any notes or special requests.",
+      "Step 7 — Read back all details: service, date, time, name, phone. Ask: 'Shall I book this appointment?'",
+      "Step 8 — Only after they confirm: call the create_reservation tool.",
+      "Step 9 — Read out the confirmation message from the tool.",
+      "IMPORTANT: The appointment is PENDING — staff will confirm it. Do not say it is confirmed.",
+    ].join("\n"));
   }
 
   return lines.join("\n\n");
@@ -273,6 +303,8 @@ PERSONALITY & TONE:
 - You are professional, warm, and efficient.
 - Keep responses concise and clear — this is a voice call.
 - Never use bullet points or markdown in speech — speak in natural sentences.
+- Ask ONE question at a time. Never ask for multiple pieces of information in a single sentence.
+- Wait for the customer to answer before moving to the next question.
 
 BUSINESS INFORMATION:
 - Name: ${business.business_name}
@@ -319,13 +351,13 @@ CALL HANDLING:
 - End calls politely with the appropriate farewell in the customer's language.
 
 TOOL USAGE — CRITICAL:
-You have tools available to take real actions. Use them correctly:
-- "check_hours": Call this when asked about opening hours or whether the business is open right now.
-- "get_menu": Call this when asked about the menu, prices, or what is available.
-- "create_order": Call this to submit a confirmed order. NEVER call before getting explicit customer confirmation.
-- "create_reservation": Call this to submit a confirmed reservation. NEVER call before getting explicit confirmation.
-- After a tool returns a result, read out the relevant information to the customer in their language.
-- If a tool call fails, apologize and offer to try again or direct the customer to contact the business directly.
+You have tools that take real actions. Use them correctly:
+- "check_hours": Call when asked if the business is open or what the hours are.
+- "get_menu": Call when asked about the menu, what is available, or prices. Read out the relevant items naturally.
+- "create_order": Call ONLY after completing ALL steps in the ordering flow AND getting explicit customer confirmation. Pass customer_name, customer_phone, order_type, items_text (e.g. "2x Espresso, 1x Croissant"), delivery_address if delivery, and special_instructions if any.
+- "create_reservation": Call ONLY after completing ALL steps in the reservation/appointment flow AND getting explicit customer confirmation. Pass customer_name, customer_phone, reservation_date (YYYY-MM-DD), reservation_time (HH:MM), party_size, and notes if any.
+- After a successful tool call: read the confirmation message aloud to the customer in their language, including the reference number.
+- If a tool call fails: apologize sincerely and offer to try again, or suggest the customer call the business directly.
 
 IMPORTANT RESTRICTIONS:
 - Never provide medical, legal, or financial advice.
