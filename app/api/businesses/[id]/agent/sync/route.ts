@@ -66,7 +66,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
     } catch (elError) {
       const msg = elError instanceof Error ? elError.message : "ElevenLabs error";
       await setAgentStatus(id, "error", { error_message: msg });
-      return NextResponse.json({ error: `ElevenLabs error: ${msg}` }, { status: 502 });
+      // Return the full payload so the caller can debug the tool schema
+      return NextResponse.json({
+        error:          `ElevenLabs error: ${msg}`,
+        debug_payload:  config,
+        tool_count:     (config.conversation_config.agent.prompt.tools as unknown[])?.length ?? 0,
+      }, { status: 502 });
     }
 
     // 5. Persist the ElevenLabs agent ID and mark active
@@ -87,9 +92,11 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
     // 7. Return success with the ElevenLabs agent ID
     const updatedAgent = await getAgentByBusinessId(id);
+    const toolCount = (config.conversation_config.agent.prompt.tools as unknown[])?.length ?? 0;
     return NextResponse.json({
       success:             true,
       elevenlabs_agent_id: elAgentId,
+      tools_registered:    toolCount,
       agent:               updatedAgent,
     });
   } catch (err) {

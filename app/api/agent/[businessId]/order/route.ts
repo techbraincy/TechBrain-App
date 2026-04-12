@@ -16,15 +16,21 @@ const schema = z.object({
   customer_name:        z.string().min(1).max(100),
   customer_phone:       z.string().max(30).optional().nullable(),
   order_type:           z.enum(["delivery", "takeaway"]).default("takeaway"),
+  // items_text is the primary field when called from the voice agent
+  // (ElevenLabs tool schemas don't support nested object arrays well)
+  items_text:           z.string().max(1000).optional(),
+  // items array is accepted from the portal / direct API calls
   items:                z.array(z.object({
     name:     z.string().min(1),
     quantity: z.number().int().min(1).max(50),
-  })).min(1).optional(),
-  items_text:           z.string().max(500).optional(),  // fallback free-text summary
+  })).optional(),
   delivery_address:     z.string().max(300).optional().nullable(),
   special_instructions: z.string().max(500).optional().nullable(),
   preferred_language:   z.enum(["el", "en"]).optional().default("el"),
-});
+}).refine(
+  (d) => (d.items_text && d.items_text.trim().length > 0) || (d.items && d.items.length > 0),
+  { message: "Either items_text or items must be provided" }
+);
 
 type Params = { params: Promise<{ businessId: string }> };
 
@@ -70,8 +76,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   const autoAccept = ws.auto_accept_orders === true;
   const initialStatus = autoAccept ? "accepted" : "pending";
 
-  // Normalise items — convert named items to storage format
-  const rawItems = body.data.items ?? [];
+  // Normalise items
+  // Voice agent sends items_text (plain string); portal sends items[] array
+  const rawItems  = body.data.items ?? [];
   const storedItems = rawItems.map((item, i) => ({
     id:       `voice-${Date.now()}-${i}`,
     name:     item.name,
@@ -80,8 +87,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     notes:    "",
   }));
 
-  const itemsSummary = body.data.items_text
-    ?? rawItems.map((i) => `${i.quantity}x ${i.name}`).join(", ");
+  const itemsSummary = body.data.items_text?.trim()
+    || rawItems.map((i) => `${i.quantity}x ${i.name}`).join(", ");
 
   const now = new Date();
   let estimatedReadyAt: string | null = null;
