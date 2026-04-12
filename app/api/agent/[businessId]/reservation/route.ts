@@ -140,7 +140,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     .single();
 
   if (rErr || !reservation) {
-    return NextResponse.json({ success: false, message: "Failed to save reservation" }, { status: 500 });
+    console.error("[agent/reservation] DB insert error:", rErr?.message, rErr?.details, rErr?.hint);
+    return NextResponse.json({ success: false, message: "Failed to save reservation", debug: rErr?.message }, { status: 500 });
   }
 
   const ref  = reservation.id.slice(0, 8).toUpperCase();

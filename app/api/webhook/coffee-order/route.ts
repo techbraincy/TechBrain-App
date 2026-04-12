@@ -61,13 +61,14 @@ export async function POST(req: NextRequest) {
     customer_phone,
     caller_id,
     delivery_address,
+    coffee_type:   coffee_type,   // NOT NULL column — raw value from agent
     items_summary,
     status: "pending",
     tenant_id: "59f70cfe-4731-4626-af6f-8667bcb62a45", // Demo Caffe tenant
   });
 
   if (error) {
-    console.error("[webhook/coffee-order] DB error:", error.message);
+    console.error("[webhook/coffee-order] DB error:", error.message, error.details, error.hint);
     return NextResponse.json({ success: false, message: "Sorry, there was a problem saving your order. Please try again." });
   }
 

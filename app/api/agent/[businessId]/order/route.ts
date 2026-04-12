@@ -142,6 +142,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       customer_name:        body.data.customer_name,
       customer_phone:       phone ?? null,
       customer_id:          customerId,
+      preferred_language:   body.data.preferred_language,
       order_type,
       items:                storedItems.length > 0 ? storedItems : [],
       items_summary:        itemsSummary,
@@ -156,7 +157,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     .single();
 
   if (oErr || !order) {
-    return NextResponse.json({ ok: false, success: false, message: "Failed to save order" }, { status: 500 });
+    console.error("[agent/order] DB insert error:", oErr?.message, oErr?.details, oErr?.hint);
+    return NextResponse.json({ ok: false, success: false, message: "Failed to save order", debug: oErr?.message }, { status: 500 });
   }
 
   // Write status history
