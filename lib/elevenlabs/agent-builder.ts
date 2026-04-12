@@ -476,8 +476,8 @@ export function buildTools(business: Business): unknown[] {
               description:       "The mobile phone number provided by the customer",
             },
             caller_id: {
-              type:               "string",
-              is_system_provided: true,
+              type:        "string",
+              description: "The caller's phone number if available (optional)",
             },
             order_type: {
               type:        "string",
