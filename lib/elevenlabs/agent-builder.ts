@@ -160,24 +160,38 @@ function buildCapabilitiesSection(business: Business): string {
 
   // ── Reservations ────────────────────────────────────────────────────────────
   if (business.reservation_enabled) {
-    const maxParty  = ws?.max_party_size ?? 10;
+    const maxParty  = ws?.max_party_size ?? 20;
     const leadHours = ws?.booking_lead_time_hours ?? 1;
     const cancelWin = ws?.cancellation_window_hours ?? 2;
 
     lines.push([
       "TABLE RESERVATIONS — STEP-BY-STEP CONVERSATION FLOW:",
-      "Step 1 — Ask for the customer's preferred date.",
+      "Step 1 — Ask for the customer's preferred date. If they use a relative expression (today, tomorrow, this Friday etc.), call get_current_datetime first to resolve the exact date.",
       "Step 2 — Ask for the preferred time.",
       `Step 3 — Ask how many people will be joining (maximum ${maxParty}).`,
-      "Step 4 — Ask for their full name.",
-      "Step 5 — Ask for their phone number.",
-      "Step 6 — Ask if they have any special requests (birthday, allergies, high chair, etc.).",
-      "Step 7 — Read all details back: date, time, number of people, name, phone, and any notes. Ask: 'Shall I confirm this reservation?'",
-      "Step 8 — Only after they confirm: call the create_reservation tool.",
-      "Step 9 — Read out the confirmation message from the tool, including the reference number.",
+      "Step 4 — Call check_availability with the date, time, and party_size. If not available, offer alternatives.",
+      "Step 5 — Ask for their full name.",
+      "Step 6 — Ask for their phone number in international format (e.g. +357 99 123456).",
+      "Step 7 — Ask if they have any special requests (birthday, allergies, high chair, etc.).",
+      "Step 8 — Read all details back: date, time, number of people, name, phone, and any notes. Ask: 'Shall I confirm this reservation?'",
+      "Step 9 — Only after they confirm: call the book_reservation tool.",
+      "Step 10 — Read out the confirmation message from the tool, including the reference number, then use end_call.",
+      "IMPORTANT: Do NOT call book_reservation until check_availability confirms the slot is free.",
       "IMPORTANT: Do NOT submit until the customer explicitly confirms all details.",
-      "IMPORTANT: The reservation is PENDING — staff will call to confirm it. Do not say it is confirmed.",
       `Note: Reservations require at least ${leadHours} hour(s) advance notice. Cancellations must be made at least ${cancelWin} hours before.`,
+      "",
+      "CANCELLATIONS:",
+      "Step 1 — Ask for their phone number.",
+      "Step 2 — Ask for the date of the reservation they want to cancel.",
+      "Step 3 — Call cancel_reservation with phone_number and date.",
+      "Step 4 — Read out the result, then use end_call.",
+      "",
+      "RESCHEDULING:",
+      "Step 1 — Ask for their phone number.",
+      "Step 2 — Ask for the original reservation date.",
+      "Step 3 — Ask for the new preferred date and time.",
+      "Step 4 — Call reschedule_reservation with phone_number, old_date, new_date, new_time.",
+      "Step 5 — Read out the result, then use end_call.",
     ].join("\n"));
   } else {
     lines.push("RESERVATIONS: This business does NOT accept reservations. Inform customers politely.");
@@ -189,14 +203,15 @@ function buildCapabilitiesSection(business: Business): string {
     lines.push([
       "APPOINTMENTS — STEP-BY-STEP CONVERSATION FLOW:",
       "Step 1 — Ask what service or treatment they need." + (serviceList ? ` Available services: ${serviceList}.` : ""),
-      "Step 2 — Ask for their preferred date.",
+      "Step 2 — Ask for their preferred date. If they use a relative expression, call get_current_datetime first.",
       "Step 3 — Ask for their preferred time.",
-      "Step 4 — Ask for their full name.",
-      "Step 5 — Ask for their phone number.",
-      "Step 6 — Ask if they have any notes or special requests.",
-      "Step 7 — Read back all details: service, date, time, name, phone. Ask: 'Shall I book this appointment?'",
-      "Step 8 — Only after they confirm: call the create_reservation tool.",
-      "Step 9 — Read out the confirmation message from the tool.",
+      "Step 4 — Call check_availability with the date, time, and party_size=1 (or the appropriate number). If not available, offer alternatives.",
+      "Step 5 — Ask for their full name.",
+      "Step 6 — Ask for their phone number in international format.",
+      "Step 7 — Ask if they have any notes or special requests.",
+      "Step 8 — Read back all details: service, date, time, name, phone. Ask: 'Shall I book this appointment?'",
+      "Step 9 — Only after they confirm: call the book_reservation tool.",
+      "Step 10 — Read out the confirmation message from the tool, then use end_call.",
       "IMPORTANT: The appointment is PENDING — staff will confirm it. Do not say it is confirmed.",
     ].join("\n"));
   }
@@ -350,14 +365,28 @@ CALL HANDLING:
 - Always confirm important information (names, times, orders) back to the customer.
 - End calls politely with the appropriate farewell in the customer's language.
 
-TOOL USAGE — CRITICAL:
-You have tools that take real actions. Use them correctly:
-- "check_hours": Call when asked if the business is open or what the hours are.
-- "get_menu": Call when asked about the menu, what is available, or prices. Read out the relevant items naturally.
-- "create_order": Call ONLY after completing ALL steps in the ordering flow AND getting explicit customer confirmation. Pass customer_name, customer_phone, order_type, items_text (e.g. "2x Espresso, 1x Croissant"), delivery_address if delivery, and special_instructions if any.
-- "create_reservation": Call ONLY after completing ALL steps in the reservation/appointment flow AND getting explicit customer confirmation. Pass customer_name, customer_phone, reservation_date (YYYY-MM-DD), reservation_time (HH:MM), party_size, and notes if any.
-- After a successful tool call: read the confirmation message aloud to the customer in their language, including the reference number.
-- If a tool call fails: apologize sincerely and offer to try again, or suggest the customer call the business directly.
+CURRENT DATE RULE (CRITICAL):
+- Call get_current_datetime ONLY when the customer uses a relative date expression: today, tonight, tomorrow, this Saturday, next Friday, this weekend, next week.
+- Do NOT call get_current_datetime when the customer states an exact date (e.g. "April 20", "the 25th", "2026-04-20").
+- Never use your own memory or assumptions to determine the current date.
+- If get_current_datetime fails, ask: "Just to confirm, what date did you have in mind?"
+
+SILENT TOOL RULE (STRICT):
+- Never narrate tool calls. Do NOT say "Let me check", "One moment", "Let me look that up", or any similar phrase before or during tool execution.
+- Call all tools silently and immediately. Speak only after you have a result.
+
+TOOL USAGE:
+- "get_current_datetime": Resolve relative dates only. Never mention this tool to the customer.
+- "check_hours": Call when asked about opening hours or whether the business is open.
+- "get_menu": Call when asked about the menu, prices, or available items. Read relevant items naturally.
+- "check_availability": Call before booking to verify the slot is free. If unavailable, offer alternatives.
+- "book_reservation": Call ONLY after check_availability confirms available=true AND customer explicitly confirms all details.
+- "create_order": Call ONLY after all order details are collected and customer explicitly confirms.
+- "cancel_reservation": Call to cancel a booking by phone number and date.
+- "reschedule_reservation": Call to move an existing booking to a new date/time.
+- "end_call": Call immediately after delivering the final farewell following a completed action (booking/order/cancellation/reschedule).
+- After any successful action: read the confirmation message aloud in the customer's language including the reference number, deliver the farewell, then call end_call.
+- If a tool fails: apologize and offer to try again or suggest the customer call directly.
 
 IMPORTANT RESTRICTIONS:
 - Never provide medical, legal, or financial advice.
@@ -382,9 +411,16 @@ function getAppUrl(): string {
  * Builds ElevenLabs webhook tool definitions for all capabilities enabled on this business.
  *
  * Format follows the ElevenLabs ConvAI WebhookToolConfig schema exactly:
- *  - GET tools use query_params_schema (no request_body_schema)
- *  - POST tools use request_body_schema with required[] and content_type
+ *  - GET tools: only { url, method: "GET" } — no body schema
+ *  - POST tools: request_body_schema with required[] and content_type
  *  - NO top-level "parameters" field — only api_schema
+ *
+ * Tool set mirrors the working "Restaurant Receptionist v2" pattern:
+ *  - get_current_datetime (for relative date resolution)
+ *  - check_hours, get_menu
+ *  - create_order (if ordering enabled)
+ *  - check_availability, book_reservation, cancel_reservation, reschedule_reservation
+ *    (if reservations/appointments enabled)
  */
 export function buildTools(business: Business): unknown[] {
   const base = `${getAppUrl()}/api/agent/${business.id}`;
@@ -394,11 +430,31 @@ export function buildTools(business: Business): unknown[] {
   const hasReservations = business.reservation_enabled || business.meetings_enabled;
   const hasMenu         = (business.menu_catalog?.length ?? 0) > 0 || (business.services?.length ?? 0) > 0;
 
+  // ── get_current_datetime ───────────────────────────────────────────────────
+  // Always included — agent must resolve relative dates (today, tomorrow, etc.)
+  tools.push({
+    type:                    "webhook",
+    name:                    "get_current_datetime",
+    description:             "Get the current date and time. Call this ONLY when the customer uses a relative date expression such as today, tonight, tomorrow, this Saturday, next Friday, this weekend, or next week. Do NOT call for exact dates the customer states explicitly (e.g. 'April 20', 'the 25th'). Returns current_date, current_day, current_time.",
+    response_timeout_secs:   10,
+    api_schema: {
+      url:          `${base}/datetime`,
+      method:       "POST",
+      content_type: "application/json",
+      request_body_schema: {
+        type:       "object",
+        required:   [],
+        properties: {},
+      },
+    },
+  });
+
   // ── check_hours ────────────────────────────────────────────────────────────
   tools.push({
     type:        "webhook",
     name:        "check_hours",
     description: "Check if the business is currently open and get today's opening hours. Call this when a customer asks about hours, whether the business is open, or what time it closes.",
+    response_timeout_secs: 10,
     api_schema: {
       url:    `${base}/hours`,
       method: "GET",
@@ -411,6 +467,7 @@ export function buildTools(business: Business): unknown[] {
       type:        "webhook",
       name:        "get_menu",
       description: "Retrieve the full menu or service list with prices. Call this when a customer asks about what is available, menu items, prices, or services.",
+      response_timeout_secs: 10,
       api_schema: {
         url:    `${base}/menu`,
         method: "GET",
@@ -425,9 +482,11 @@ export function buildTools(business: Business): unknown[] {
     if (business.takeaway_enabled) orderTypes.push("takeaway");
 
     tools.push({
-      type:        "webhook",
-      name:        "create_order",
-      description: `Submit a confirmed order. Call this ONLY after the customer has confirmed ALL of: their name, phone number, items with quantities, order type (${orderTypes.join(" or ")}), and delivery address if delivery. Read back the complete order and get explicit yes/confirmation before calling.`,
+      type:                    "webhook",
+      name:                    "create_order",
+      description:             `Submit a confirmed order. Call this ONLY after the customer has confirmed ALL of: their name, phone number, items with quantities, order type (${orderTypes.join(" or ")}), and delivery address if delivery. Read back the complete order and get explicit confirmation before calling.`,
+      response_timeout_secs:   20,
+      force_pre_tool_speech:   true,
       api_schema: {
         url:          `${base}/order`,
         method:       "POST",
@@ -446,7 +505,6 @@ export function buildTools(business: Business): unknown[] {
             },
             order_type: {
               type:        "string",
-              enum:        orderTypes,
               description: `Order type: ${orderTypes.join(" or ")}`,
             },
             items_text: {
@@ -463,8 +521,7 @@ export function buildTools(business: Business): unknown[] {
             },
             preferred_language: {
               type:        "string",
-              enum:        ["el", "en"],
-              description: "Language of the conversation",
+              description: "Language of the conversation: el or en",
             },
           },
           required: ["customer_name", "order_type", "items_text"],
@@ -473,59 +530,156 @@ export function buildTools(business: Business): unknown[] {
     });
   }
 
-  // ── create_reservation ─────────────────────────────────────────────────────
+  // ── Reservation tools (check_availability + book + cancel + reschedule) ────
   if (hasReservations) {
     const ws       = business.workflow_settings;
-    const maxParty = ws?.max_party_size ?? 10;
-    const label    = business.meetings_enabled ? "appointment" : "table reservation";
+    const maxParty = ws?.max_party_size ?? 20;
+    const label    = business.meetings_enabled && !business.reservation_enabled
+      ? "appointment"
+      : "table";
 
+    // check_availability
     tools.push({
-      type:        "webhook",
-      name:        "create_reservation",
-      description: `Book a ${label}. Call this ONLY after the customer has confirmed ALL of: their name, phone number, date (YYYY-MM-DD), time (HH:MM), and number of people (max ${maxParty}). Read back the details and get explicit confirmation before calling.`,
+      type:                    "webhook",
+      name:                    "check_availability",
+      description:             `Check if a ${label} is available for a given date, time, and party size. Call this BEFORE booking to confirm the slot is free. Returns available (true/false) and a reason if not available.`,
+      response_timeout_secs:   20,
+      api_schema: {
+        url:          `${base}/check-availability`,
+        method:       "POST",
+        content_type: "application/json",
+        request_body_schema: {
+          type:        "object",
+          description: "Slot to check",
+          properties: {
+            date:       { type: "string", description: "Date in YYYY-MM-DD format" },
+            time:       { type: "string", description: "Time in HH:MM 24-hour format" },
+            party_size: { type: "integer", description: "Number of guests" },
+          },
+          required: ["date", "time", "party_size"],
+        },
+      },
+    });
+
+    // book_reservation
+    tools.push({
+      type:                    "webhook",
+      name:                    "book_reservation",
+      description:             `Book a confirmed ${label} after availability has been verified. Call this ONLY after check_availability returns available=true AND the customer has confirmed ALL details: name, phone, date, time, party size. Returns success and reservation reference.`,
+      response_timeout_secs:   20,
+      force_pre_tool_speech:   true,
       api_schema: {
         url:          `${base}/reservation`,
         method:       "POST",
         content_type: "application/json",
         request_body_schema: {
           type:        "object",
-          description: "Reservation details collected from the customer",
+          description: `${label.charAt(0).toUpperCase() + label.slice(1)} details collected from the customer`,
           properties: {
             customer_name: {
               type:        "string",
-              description: "Customer's full name",
+              description: "Full name of the customer",
             },
-            customer_phone: {
+            phone_number: {
               type:        "string",
-              description: "Customer's phone number with country code (e.g. +30 6901234567)",
-            },
-            reservation_date: {
-              type:        "string",
-              description: "Date in YYYY-MM-DD format, e.g. 2025-06-20",
-            },
-            reservation_time: {
-              type:        "string",
-              description: "Time in HH:MM format, e.g. 19:30",
+              description: "Customer phone in E.164 format, e.g. +35797797589",
             },
             party_size: {
               type:        "integer",
-              description: `Number of people, between 1 and ${maxParty}`,
+              description: `Number of guests (max ${maxParty})`,
+            },
+            date: {
+              type:        "string",
+              description: "Reservation date in YYYY-MM-DD format",
+            },
+            time: {
+              type:        "string",
+              description: "Reservation time in HH:MM 24-hour format",
             },
             notes: {
               type:        "string",
-              description: "Special requests, allergies, or occasion notes",
-            },
-            preferred_language: {
-              type:        "string",
-              enum:        ["el", "en"],
-              description: "Language of the conversation",
+              description: "Special requests, allergies, or occasion (optional)",
             },
           },
-          required: ["customer_name", "reservation_date", "reservation_time", "party_size"],
+          required: ["customer_name", "phone_number", "party_size", "date", "time"],
+        },
+      },
+    });
+
+    // cancel_reservation
+    tools.push({
+      type:                    "webhook",
+      name:                    "cancel_reservation",
+      description:             `Cancel an existing confirmed ${label} booking by the customer's phone number and date. Returns success and a reason if the cancellation fails.`,
+      response_timeout_secs:   20,
+      api_schema: {
+        url:          `${base}/cancel-reservation`,
+        method:       "POST",
+        content_type: "application/json",
+        request_body_schema: {
+          type:        "object",
+          description: "Phone number and date to identify the booking",
+          properties: {
+            phone_number: {
+              type:        "string",
+              description: "Customer phone in E.164 format, e.g. +35797797589",
+            },
+            date: {
+              type:        "string",
+              description: "Reservation date in YYYY-MM-DD format",
+            },
+          },
+          required: ["phone_number", "date"],
+        },
+      },
+    });
+
+    // reschedule_reservation
+    tools.push({
+      type:                    "webhook",
+      name:                    "reschedule_reservation",
+      description:             `Reschedule an existing ${label} booking to a new date and time. Returns success and the new booking details.`,
+      response_timeout_secs:   20,
+      api_schema: {
+        url:          `${base}/reschedule-reservation`,
+        method:       "POST",
+        content_type: "application/json",
+        request_body_schema: {
+          type:        "object",
+          description: "Phone number, original date, and new date/time",
+          properties: {
+            phone_number: {
+              type:        "string",
+              description: "Customer phone in E.164 format, e.g. +35797797589",
+            },
+            old_date: {
+              type:        "string",
+              description: "Original reservation date in YYYY-MM-DD format",
+            },
+            new_date: {
+              type:        "string",
+              description: "New reservation date in YYYY-MM-DD format",
+            },
+            new_time: {
+              type:        "string",
+              description: "New reservation time in HH:MM 24-hour format",
+            },
+          },
+          required: ["phone_number", "old_date", "new_date", "new_time"],
         },
       },
     });
   }
+
+  // ── end_call (system tool) ─────────────────────────────────────────────────
+  tools.push({
+    type:        "system",
+    name:        "end_call",
+    description: "End the phone call immediately. Use this after delivering the closing farewell following a successful booking, order, cancellation, or reschedule. Do not use if the caller interrupts before the closing is complete.",
+    params: {
+      system_tool_type: "end_call",
+    },
+  });
 
   return tools;
 }

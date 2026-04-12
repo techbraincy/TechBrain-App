@@ -9,15 +9,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/db/supabase-server";
 import { z } from "zod";
 
+// Accepts both field-name conventions:
+//   Agent:  phone_number, date, time  (matches Restaurant Receptionist v2 schema)
+//   Portal: customer_phone, reservation_date, reservation_time
 const schema = z.object({
   customer_name:      z.string().min(1).max(100),
+  // phone: accept either phone_number (agent) or customer_phone (portal)
+  phone_number:       z.string().max(30).optional().nullable(),
   customer_phone:     z.string().max(30).optional().nullable(),
-  reservation_date:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  reservation_time:   z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Time must be HH:MM"),
+  // date: accept either date (agent) or reservation_date (portal)
+  date:               z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reservation_date:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // time: accept either time (agent) or reservation_time (portal)
+  time:               z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+  reservation_time:   z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
   party_size:         z.number().int().min(1).max(100).default(2),
   notes:              z.string().max(500).optional().nullable(),
   preferred_language: z.enum(["el", "en"]).optional().default("el"),
-});
+}).transform((d) => ({
+  ...d,
+  // Normalise to canonical names
+  resolved_phone: d.phone_number ?? d.customer_phone ?? null,
+  resolved_date:  (d.date ?? d.reservation_date ?? ""),
+  resolved_time:  (d.time ?? d.reservation_time ?? ""),
+})).refine(
+  (d) => /^\d{4}-\d{2}-\d{2}$/.test(d.resolved_date),
+  { message: "date must be YYYY-MM-DD" }
+).refine(
+  (d) => /^\d{2}:\d{2}/.test(d.resolved_time),
+  { message: "time must be HH:MM" }
+);
 
 type Params = { params: Promise<{ businessId: string }> };
 
@@ -36,7 +57,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  if (body.data.reservation_date < today) {
+  if (body.data.resolved_date < today) {
     return NextResponse.json({
       success: false,
       message: "Reservation date cannot be in the past",
@@ -59,7 +80,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const ws = (business.workflow_settings ?? {}) as Record<string, unknown>;
-  const maxParty = Number(ws.max_party_size ?? 10);
+  const maxParty = Number(ws.max_party_size ?? 20);
   if (body.data.party_size > maxParty) {
     return NextResponse.json({
       success: false,
@@ -68,7 +89,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const now = new Date();
-  const phone = body.data.customer_phone;
+  const phone = body.data.resolved_phone;
 
   // Upsert customer
   let customerId: string | null = null;
@@ -109,8 +130,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       customer_phone:     phone ?? null,
       customer_id:        customerId,
       preferred_language: body.data.preferred_language,
-      reservation_date:   body.data.reservation_date,
-      reservation_time:   body.data.reservation_time.slice(0, 5), // HH:MM
+      reservation_date:   body.data.resolved_date,
+      reservation_time:   body.data.resolved_time.slice(0, 5), // HH:MM
       party_size:         body.data.party_size,
       notes:              body.data.notes ?? null,
       status:             "pending",
@@ -123,10 +144,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const ref  = reservation.id.slice(0, 8).toUpperCase();
-  const date = new Date(`${body.data.reservation_date}T${body.data.reservation_time}`);
-  const dateStrEl = date.toLocaleDateString("el", { weekday: "long", day: "numeric", month: "long" });
-  const dateStrEn = date.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" });
-  const time = body.data.reservation_time.slice(0, 5);
+  const dateObj = new Date(`${body.data.resolved_date}T${body.data.resolved_time}`);
+  const dateStrEl = dateObj.toLocaleDateString("el", { weekday: "long", day: "numeric", month: "long" });
+  const dateStrEn = dateObj.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" });
+  const time = body.data.resolved_time.slice(0, 5);
 
   return NextResponse.json({
     success:         true,
