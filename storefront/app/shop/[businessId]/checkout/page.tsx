@@ -5,9 +5,10 @@ import { CheckoutClient } from '@/components/shop/CheckoutClient'
 import { ShopHeader } from '@/components/shop/ShopHeader'
 import { createClient } from '@/lib/db/supabase-server'
 
-export default async function CheckoutPage({ params }: { params: { businessId: string } }) {
+export default async function CheckoutPage({ params }: { params: Promise<{ businessId: string }> }) {
+  const { businessId } = await params
   const [customer, admin] = await Promise.all([
-    requireShopCustomer(params.businessId),
+    requireShopCustomer(businessId),
     Promise.resolve(createAdminClient()),
   ])
 
@@ -17,13 +18,13 @@ export default async function CheckoutPage({ params }: { params: { businessId: s
     admin
       .from('businesses')
       .select('id, name, primary_color')
-      .eq('id', params.businessId)
+      .eq('id', businessId)
       .eq('is_active', true)
       .single(),
     admin
       .from('delivery_configs')
       .select('*')
-      .eq('business_id', params.businessId)
+      .eq('business_id', businessId)
       .maybeSingle(),
     supabase
       .from('customer_addresses')
@@ -38,18 +39,18 @@ export default async function CheckoutPage({ params }: { params: { businessId: s
   return (
     <div className="min-h-screen bg-background">
       <ShopHeader
-        businessId={params.businessId}
+        businessId={businessId}
         businessName={businessRes.data.name}
         primaryColor={businessRes.data.primary_color ?? '#2563eb'}
         customer={{ first_name: customer.first_name, email: customer.email }}
         showBack
-        backHref={`/shop/${params.businessId}`}
+        backHref={`/shop/${businessId}`}
       />
 
       <main className="max-w-2xl mx-auto px-4 py-4">
         <h1 className="text-lg font-bold mb-4">Ολοκλήρωση παραγγελίας</h1>
         <CheckoutClient
-          businessId={params.businessId}
+          businessId={businessId}
           primaryColor={businessRes.data.primary_color ?? '#2563eb'}
           customer={customer}
           addresses={addressesRes.data ?? []}

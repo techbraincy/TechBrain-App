@@ -4,15 +4,16 @@ import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { ShopAuthClient } from './ShopAuthClient'
 
-export default async function ShopAuthPage({ params }: { params: { businessId: string } }) {
+export default async function ShopAuthPage({ params }: { params: Promise<{ businessId: string }> }) {
+  const { businessId } = await params
   const customer = await getShopCustomer()
-  if (customer) redirect(`/shop/${params.businessId}`)
+  if (customer) redirect(`/shop/${businessId}`)
 
   const admin = createAdminClient()
   const { data: business } = await admin
     .from('businesses')
     .select('id, name, primary_color')
-    .eq('id', params.businessId)
+    .eq('id', businessId)
     .eq('is_active', true)
     .single()
 
@@ -20,7 +21,7 @@ export default async function ShopAuthPage({ params }: { params: { businessId: s
 
   return (
     <ShopAuthClient
-      businessId={params.businessId}
+      businessId={businessId}
       businessName={business.name}
       primaryColor={business.primary_color ?? '#2563eb'}
     />

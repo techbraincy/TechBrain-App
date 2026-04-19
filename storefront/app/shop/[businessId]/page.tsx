@@ -18,25 +18,26 @@ function isCurrentlyOpen(hours: Array<{ day_of_week: number; is_open: boolean; o
   }
 }
 
-export default async function ShopHomePage({ params }: { params: { businessId: string } }) {
+export default async function ShopHomePage({ params }: { params: Promise<{ businessId: string }> }) {
+  const { businessId } = await params
   const admin = createAdminClient()
 
   const [bizRes, cfgRes, catsRes, deliveryRes, hoursRes, customer] = await Promise.all([
     admin.from('businesses')
       .select('id, name, type, description, address, city, phone, primary_color, logo_url, timezone, slug')
-      .eq('id', params.businessId).eq('is_active', true).single(),
+      .eq('id', businessId).eq('is_active', true).single(),
     admin.from('shop_configs')
       .select('is_published, cover_image_url, announcement, subtitle, logo_url, hero_tagline, banners')
-      .eq('business_id', params.businessId).maybeSingle(),
+      .eq('business_id', businessId).maybeSingle(),
     admin.from('menu_categories')
-      .select('id, name_el, name_en').eq('business_id', params.businessId)
+      .select('id, name_el, name_en').eq('business_id', businessId)
       .eq('is_active', true).order('sort_order').limit(8),
     admin.from('delivery_configs')
       .select('delivery_fee, free_delivery_above, min_order_amount, estimated_minutes')
-      .eq('business_id', params.businessId).maybeSingle(),
+      .eq('business_id', businessId).maybeSingle(),
     admin.from('operating_hours')
       .select('day_of_week, is_open, open_time, close_time')
-      .eq('business_id', params.businessId),
+      .eq('business_id', businessId),
     getShopCustomer(),
   ])
 
@@ -50,7 +51,7 @@ export default async function ShopHomePage({ params }: { params: { businessId: s
 
   return (
     <StorefrontHome
-      businessId={params.businessId}
+      businessId={businessId}
       businessName={biz.name}
       businessAddress={biz.address && biz.city ? `${biz.address}, ${biz.city}` : biz.city ?? biz.address ?? null}
       primaryColor={biz.primary_color ?? '#2563eb'}

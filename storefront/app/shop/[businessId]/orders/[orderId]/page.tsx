@@ -50,7 +50,7 @@ export default async function OrderDetailPage({
 }: {
   params: { businessId: string; orderId: string }
 }) {
-  const customer = await requireShopCustomer(params.businessId)
+  const customer = await requireShopCustomer(businessId)
 
   const admin    = createAdminClient()
   const supabase = createClient()
@@ -59,7 +59,7 @@ export default async function OrderDetailPage({
     admin
       .from('businesses')
       .select('id, name, primary_color')
-      .eq('id', params.businessId)
+      .eq('id', businessId)
       .eq('is_active', true)
       .single(),
     supabase
@@ -72,8 +72,8 @@ export default async function OrderDetailPage({
         ),
         order_status_history ( status, created_at, note )
       `)
-      .eq('id', params.orderId)
-      .eq('business_id', params.businessId)
+      .eq('id', orderId)
+      .eq('business_id', businessId)
       .eq('app_customer_id', customer.id)
       .single(),
   ])
@@ -99,12 +99,12 @@ export default async function OrderDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <ShopHeader
-        businessId={params.businessId}
+        businessId={businessId}
         businessName={businessRes.data.name}
         primaryColor={primaryColor}
         customer={{ first_name: customer.first_name, email: customer.email }}
         showBack
-        backHref={`/shop/${params.businessId}/orders`}
+        backHref={`/shop/${businessId}/orders`}
       />
 
       <main className="max-w-2xl mx-auto px-4 py-4 space-y-4 pb-10">
@@ -119,7 +119,7 @@ export default async function OrderDetailPage({
           </p>
           {isLive && fulfillment === 'delivery' && (
             <Link
-              href={`/portal/${params.businessId}/track/${params.orderId}`}
+              href={`/portal/${businessId}/track/${orderId}`}
               className="inline-flex items-center gap-1 text-sm font-medium hover:underline mt-1"
               style={{ color: primaryColor }}
             >
@@ -245,7 +245,7 @@ export default async function OrderDetailPage({
 
         {/* Reorder CTA */}
         <Link
-          href={`/shop/${params.businessId}`}
+          href={`/shop/${businessId}`}
           className="flex items-center justify-center gap-2 w-full rounded-xl border border-border py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
         >
           <Package className="size-4" />

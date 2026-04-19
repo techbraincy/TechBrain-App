@@ -12,14 +12,14 @@ export default async function ItemDetailPage({
   const [bizRes, cfgRes, itemRes] = await Promise.all([
     admin.from('businesses')
       .select('id, name, primary_color, logo_url')
-      .eq('id', params.businessId).eq('is_active', true).single(),
+      .eq('id', businessId).eq('is_active', true).single(),
     admin.from('shop_configs')
       .select('is_published, logo_url')
-      .eq('business_id', params.businessId).maybeSingle(),
+      .eq('business_id', businessId).maybeSingle(),
     admin.from('menu_items')
       .select('id, category_id, name_el, name_en, description_el, description_en, price, image_url, is_available')
-      .eq('id', params.itemId)
-      .eq('business_id', params.businessId)
+      .eq('id', itemId)
+      .eq('business_id', businessId)
       .eq('is_active', true)
       .single(),
   ])
@@ -32,7 +32,7 @@ export default async function ItemDetailPage({
 
   return (
     <ItemDetailClient
-      businessId={params.businessId}
+      businessId={businessId}
       businessName={biz.name}
       primaryColor={biz.primary_color ?? '#2563eb'}
       logoUrl={cfgRes.data?.logo_url ?? biz.logo_url ?? null}

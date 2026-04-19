@@ -35,8 +35,9 @@ const STATUS_COLORS: Record<string, string> = {
   rejected:          'text-red-600 bg-red-50',
 }
 
-export default async function OrdersPage({ params }: { params: { businessId: string } }) {
-  const customer = await requireShopCustomer(params.businessId)
+export default async function OrdersPage({ params }: { params: Promise<{ businessId: string }> }) {
+  const { businessId } = await params
+  const customer = await requireShopCustomer(businessId)
 
   const admin    = createAdminClient()
   const supabase = createClient()
@@ -45,13 +46,13 @@ export default async function OrdersPage({ params }: { params: { businessId: str
     admin
       .from('businesses')
       .select('id, name, primary_color')
-      .eq('id', params.businessId)
+      .eq('id', businessId)
       .eq('is_active', true)
       .single(),
     supabase
       .from('orders')
       .select('id, status, total, type, created_at')
-      .eq('business_id', params.businessId)
+      .eq('business_id', businessId)
       .eq('app_customer_id', customer.id)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -65,7 +66,7 @@ export default async function OrdersPage({ params }: { params: { businessId: str
   return (
     <div className="min-h-screen bg-background">
       <ShopHeader
-        businessId={params.businessId}
+        businessId={businessId}
         businessName={businessRes.data.name}
         primaryColor={primaryColor}
         customer={{ first_name: customer.first_name, email: customer.email }}
@@ -80,7 +81,7 @@ export default async function OrdersPage({ params }: { params: { businessId: str
             <Package className="size-12 text-muted-foreground/30 mx-auto" />
             <p className="text-sm text-muted-foreground">Δεν έχετε κάνει ακόμα παραγγελία.</p>
             <Link
-              href={`/shop/${params.businessId}`}
+              href={`/shop/${businessId}`}
               className="text-sm font-medium hover:underline"
               style={{ color: primaryColor }}
             >
@@ -94,7 +95,7 @@ export default async function OrdersPage({ params }: { params: { businessId: str
               return (
                 <Link
                   key={order.id}
-                  href={`/shop/${params.businessId}/orders/${order.id}`}
+                  href={`/shop/${businessId}/orders/${order.id}`}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-muted/30 transition-colors"
                 >
                   <div

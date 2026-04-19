@@ -19,7 +19,7 @@ export interface ShopCustomer {
  * Returns null if not authenticated or profile not yet created.
  */
 export async function getShopCustomer(businessId?: string): Promise<ShopCustomer | null> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
