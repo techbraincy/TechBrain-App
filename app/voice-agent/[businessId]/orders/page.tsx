@@ -1,66 +1,43 @@
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { getBusinessById } from "@/lib/db/queries/businesses";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
-import BusinessDashboardClient from "@/components/voice-agent/BusinessDashboardClient";
+import { requireBusinessAccess } from '@/lib/auth/session'
+import { createClient } from '@/lib/db/supabase-server'
+import { redirect } from 'next/navigation'
+import { UnifiedOrdersClient } from '@/components/voice-agent/UnifiedOrdersClient'
 
-type Params = { params: Promise<{ businessId: string }> };
+interface Props { params: { businessId: string } }
 
-export default async function BusinessOrdersPage({ params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id")!;
-  const role   = h.get("x-user-role") ?? "user";
+export default async function OrdersPage({ params }: Props) {
+  const { business } = await requireBusinessAccess(params.businessId)
 
-  const { businessId } = await params;
-  const business = await getBusinessById(businessId, role === "superadmin" ? undefined : userId);
-  if (!business) notFound();
+  if (!business.features?.orders_enabled && !business.features?.takeaway_enabled && !business.features?.delivery_enabled) {
+    redirect(`/voice-agent/${params.businessId}`)
+  }
 
-  const supabase = getSupabaseServer();
+  const supabase = createClient()
+  const today    = new Date().toISOString().split('T')[0]
 
-  const [ordersRes, resRes] = await Promise.all([
-    business.delivery_enabled || business.takeaway_enabled
-      ? supabase
-          .from("business_orders")
-          .select("*")
-          .eq("business_id", businessId)
-          .order("created_at", { ascending: false })
-          .limit(200)
-      : Promise.resolve({ data: [], error: null }),
-    business.reservation_enabled || business.meetings_enabled
-      ? supabase
-          .from("business_reservations")
-          .select("*")
-          .eq("business_id", businessId)
-          .order("reservation_date", { ascending: true })
-          .order("reservation_time", { ascending: true })
-          .limit(200)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
+  const { data: orders } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items ( *, menu_items ( name_el, image_url ) ),
+      customer:customers ( name, phone )
+    `)
+    .eq('business_id', params.businessId)
+    .gte('created_at', `${today}T00:00:00`)
+    .order('created_at', { ascending: false })
+    .limit(200)
 
   return (
-    <div className="space-y-6 animate-fade-up">
-      <div className="flex items-center gap-3">
-        <Link href={`/voice-agent/${businessId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> {business.business_name}
-        </Link>
-      </div>
-
+    <div className="p-6 space-y-4 max-w-5xl mx-auto animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Live Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Orders and reservations update in real-time</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Παραγγελίες</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Σήμερα · {orders?.length ?? 0} παραγγελίες</p>
       </div>
-
-      <BusinessDashboardClient
-        businessId={businessId}
-        initialOrders={(ordersRes.data as any[]) ?? []}
-        initialReservations={(resRes.data as any[]) ?? []}
-        hasOrders={business.delivery_enabled || business.takeaway_enabled}
-        hasReservations={business.reservation_enabled || business.meetings_enabled}
-        isMeetings={business.meetings_enabled && !business.reservation_enabled}
+      <UnifiedOrdersClient
+        businessId={params.businessId}
+        initialOrders={orders ?? []}
+        features={business.features}
       />
     </div>
-  );
+  )
 }

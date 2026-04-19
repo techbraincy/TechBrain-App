@@ -1,23 +1,31 @@
-import { notFound } from "next/navigation";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
-import type { Business } from "@/types/agent";
-import PortalClient from "@/components/portal/PortalClient";
+import type { Metadata } from 'next'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { notFound } from 'next/navigation'
+import { PortalClient } from '@/components/portal/PortalClient'
 
-type Params = { params: Promise<{ businessId: string }> };
+interface Props { params: { businessId: string } }
 
-export default async function PortalPage({ params }: Params) {
-  const { businessId } = await params;
-  const supabase = getSupabaseServer();
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const admin = createAdminClient()
+  const { data: biz } = await admin
+    .from('businesses')
+    .select('name')
+    .eq('id', params.businessId)
+    .single()
 
-  const { data, error } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("id", businessId)
-    .single();
+  return { title: biz ? `${biz.name} — Παρακολούθηση παραγγελίας` : 'Παρακολούθηση παραγγελίας' }
+}
 
-  if (error || !data) notFound();
+export default async function PortalPage({ params }: Props) {
+  const admin = createAdminClient()
+  const { data: business } = await admin
+    .from('businesses')
+    .select('id, name, primary_color, accent_color, logo_url, phone, features:business_features(*)')
+    .eq('id', params.businessId)
+    .eq('is_active', true)
+    .single()
 
-  const business = data as Business;
+  if (!business) notFound()
 
-  return <PortalClient business={business} />;
+  return <PortalClient business={business as any} />
 }

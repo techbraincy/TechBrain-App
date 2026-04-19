@@ -1,34 +1,32 @@
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { getBusinessById } from "@/lib/db/queries/businesses";
-import AgentConfigClient from "@/components/voice-agent/AgentConfigClient";
+import { requireBusinessAccess } from '@/lib/auth/session'
+import { createClient } from '@/lib/db/supabase-server'
+import { AgentConfigClient } from '@/components/voice-agent/AgentConfigClient'
 
-type Params = { params: Promise<{ businessId: string }> };
+interface Props { params: { businessId: string } }
 
-export default async function AgentConfigPage({ params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id")!;
-  const role   = h.get("x-user-role") ?? "user";
+export default async function AgentPage({ params }: Props) {
+  const { business } = await requireBusinessAccess(params.businessId, 'manager')
+  const supabase = createClient()
 
-  const { businessId } = await params;
-  const business = await getBusinessById(businessId, role === "superadmin" ? undefined : userId);
-  if (!business) notFound();
+  const { data: agentConfig } = await supabase
+    .from('agent_configs')
+    .select('*')
+    .eq('business_id', params.businessId)
+    .single()
 
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="p-6 space-y-6 max-w-3xl mx-auto animate-fade-in">
       <div>
-        <Link href={`/voice-agent/${businessId}`} className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Agent Configuration</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Configure the AI agent for <strong>{business.business_name}</strong>
+        <h1 className="text-2xl font-semibold tracking-tight">AI Agent</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Ρύθμιση και συγχρονισμός του ElevenLabs phone agent
         </p>
       </div>
-
-      <AgentConfigClient business={business} />
+      <AgentConfigClient
+        businessId={params.businessId}
+        agentConfig={agentConfig}
+        agentId={business.elevenlabs_agent_id}
+      />
     </div>
-  );
+  )
 }

@@ -1,88 +1,31 @@
-/**
- * GET /api/agent/[businessId]/hours
- *
- * Called by the ElevenLabs voice agent as a tool to check today's opening hours
- * and whether the business is currently open.
- */
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { DAY_NAMES_EL, DAY_NAMES_EN } from '@/lib/utils'
 
-import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
+export async function GET(_req: NextRequest, { params }: { params: { businessId: string } }) {
+  const admin = createAdminClient()
 
-const DAY_NAMES = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"] as const;
+  const { data: hours, error } = await admin
+    .from('operating_hours')
+    .select('*')
+    .eq('business_id', params.businessId)
+    .order('day_of_week')
 
-type Params = { params: Promise<{ businessId: string }> };
-
-export async function GET(_req: NextRequest, { params }: Params) {
-  const { businessId } = await params;
-  const supabase = getSupabaseServer();
-
-  const { data: business, error } = await supabase
-    .from("businesses")
-    .select("business_name, opening_hours, holiday_hours")
-    .eq("id", businessId)
-    .single();
-
-  if (error || !business) {
-    return NextResponse.json({ success: false, message: "Business not found" }, { status: 404 });
+  if (error || !hours) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const now = new Date();
-  const todayKey = DAY_NAMES[now.getDay()];
-  const todayDate = now.toISOString().split("T")[0];
+  const ORDER = [1, 2, 3, 4, 5, 6, 0]
+  const sorted = [...hours].sort((a, b) => ORDER.indexOf(a.day_of_week) - ORDER.indexOf(b.day_of_week))
 
-  const hours = (business.opening_hours ?? {}) as Record<string, { open: string; close: string; closed: boolean } | undefined>;
-  const holidays = (business.holiday_hours ?? []) as { date: string; name: string; closed: boolean; open: string | null; close: string | null }[];
+  const lines = sorted.map((h) => {
+    const el = DAY_NAMES_EL[h.day_of_week]
+    const en = DAY_NAMES_EN[h.day_of_week]
+    if (!h.is_open || !h.open_time || !h.close_time) {
+      return `${el}/${en}: Κλειστά/Closed`
+    }
+    return `${el}/${en}: ${String(h.open_time).slice(0, 5)}–${String(h.close_time).slice(0, 5)}`
+  })
 
-  // Check holiday override first
-  const holiday = holidays.find((h) => h.date === todayDate);
-  if (holiday) {
-    const isOpen = !holiday.closed;
-    const currentTime = now.toTimeString().slice(0, 5);
-    const openNow = isOpen && holiday.open && holiday.close
-      ? currentTime >= holiday.open && currentTime <= holiday.close
-      : false;
-
-    return NextResponse.json({
-      success:   true,
-      is_open:   openNow,
-      today:     todayKey,
-      hours:     holiday.closed ? "Closed" : `${holiday.open} – ${holiday.close}`,
-      message:   holiday.closed
-        ? `${business.business_name} is closed today (${holiday.name}).`
-        : `Today (${holiday.name}) we are open ${holiday.open} – ${holiday.close}. ${openNow ? "We are currently open." : "We are currently closed."}`,
-    });
-  }
-
-  // Normal schedule
-  const todayHours = hours[todayKey];
-  if (!todayHours || todayHours.closed) {
-    return NextResponse.json({
-      success: true,
-      is_open: false,
-      today:   todayKey,
-      hours:   "Closed",
-      message: `${business.business_name} is closed today (${todayKey}).`,
-    });
-  }
-
-  const currentTime = now.toTimeString().slice(0, 5);
-  const openNow = currentTime >= todayHours.open && currentTime <= todayHours.close;
-
-  // Build week summary
-  const weekLines: string[] = [];
-  for (const day of DAY_NAMES) {
-    const h = hours[day];
-    if (!h) continue;
-    weekLines.push(h.closed ? `${day}: Closed` : `${day}: ${h.open} – ${h.close}`);
-  }
-
-  return NextResponse.json({
-    success:      true,
-    is_open:      openNow,
-    today:        todayKey,
-    hours:        `${todayHours.open} – ${todayHours.close}`,
-    current_time: currentTime,
-    message:      `Today (${todayKey}) we are open ${todayHours.open} – ${todayHours.close}. ${openNow ? "We are currently open." : "We are currently closed."}`,
-    week_schedule: weekLines.join(", "),
-  });
+  return NextResponse.json({ hours: lines.join(', ') })
 }

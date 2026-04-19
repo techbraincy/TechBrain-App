@@ -1,91 +1,56 @@
-import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { z } from "zod";
-import { getBusinessById, updateBusiness, deleteBusiness } from "@/lib/db/queries/businesses";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { requireBusinessAccess } from '@/lib/auth/session'
 
-const updateSchema = z.object({
-  business_name:             z.string().min(1).max(120).optional(),
-  business_category:         z.string().optional(),
-  phone_number:              z.string().max(30).optional().nullable(),
-  address:                   z.string().max(400).optional().nullable(),
-  google_maps_link:          z.string().optional().nullable(),
-  opening_hours:             z.record(z.unknown()).optional(),
-  languages_supported:       z.array(z.string()).optional(),
-  services:                  z.array(z.unknown()).optional(),
-  menu_catalog:              z.array(z.unknown()).optional(),
-  faq:                       z.array(z.unknown()).optional(),
-  reservation_enabled:       z.boolean().optional(),
-  meetings_enabled:          z.boolean().optional(),
-  delivery_enabled:          z.boolean().optional(),
-  takeaway_enabled:          z.boolean().optional(),
-  custom_agent_instructions: z.string().optional().nullable(),
-  escalation_rules:          z.record(z.unknown()).optional(),
-  branding_settings:         z.record(z.unknown()).optional(),
-  theme_settings:            z.record(z.unknown()).optional(),
-  agent_voice_settings:      z.record(z.unknown()).optional(),
-  greeting_settings:         z.record(z.unknown()).optional(),
-  workflow_settings:         z.record(z.unknown()).optional(),
-  custom_permissions:        z.record(z.unknown()).optional(),
-  service_area:              z.string().optional().nullable(),
-  holiday_hours:             z.array(z.unknown()).optional(),
-  onboarding_complete:       z.boolean().optional(),
-  onboarding_step:           z.number().int().min(1).max(10).optional(),
-}).strict();
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const { session } = await requireBusinessAccess(params.id, 'manager').catch(() => ({ session: null, business: null }))
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-type Params = { params: Promise<{ id: string }> };
+  const body = await req.json().catch(() => ({}))
+  const admin = createAdminClient()
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = [
+    'name', 'description', 'email', 'phone', 'website',
+    'address', 'city', 'postal_code', 'country', 'timezone', 'locale',
+    'primary_color', 'accent_color',
+  ]
+  const update: Record<string, unknown> = {}
+  allowed.forEach((key) => { if (body[key] !== undefined) update[key] = body[key] })
 
-  const { id } = await params;
-  const role = h.get("x-user-role");
+  if (!Object.keys(update).length) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 
-  try {
-    // Superadmin can see all; regular users only their own
-    const business = await getBusinessById(id, role === "superadmin" ? undefined : userId);
-    if (!business) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(business);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  const { data, error } = await admin
+    .from('businesses')
+    .update(update)
+    .eq('id', params.id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await admin.from('audit_log').insert({
+    business_id: params.id,
+    user_id:     session.user.id,
+    action:      'business.updated',
+    entity_type: 'business',
+    entity_id:   params.id,
+    new_data:    update,
+  })
+
+  return NextResponse.json({ business: data })
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const { session } = await requireBusinessAccess(params.id).catch(() => ({ session: null, business: null }))
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id } = await params;
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('businesses')
+    .select('*, business_features(*), agent_configs(*), operating_hours(*), reservation_configs(*), delivery_configs(*)')
+    .eq('id', params.id)
+    .single()
 
-  const body = updateSchema.safeParse(await req.json());
-  if (!body.success) {
-    return NextResponse.json({ error: body.error.issues[0].message }, { status: 400 });
-  }
-
-  try {
-    const updated = await updateBusiness(id, userId, body.data as never);
-    return NextResponse.json(updated);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-
-  try {
-    await deleteBusiness(id, userId);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+  return NextResponse.json({ business: data })
 }

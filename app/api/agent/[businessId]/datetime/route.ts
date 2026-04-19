@@ -1,75 +1,52 @@
-/**
- * POST /api/agent/[businessId]/datetime
- *
- * Returns the current date and time in the business's timezone (default: Europe/Nicosia).
- * Called by the ElevenLabs voice agent when the customer uses a relative date expression
- * (today, tonight, tomorrow, this Saturday, next Friday, etc.).
- *
- * Never called for explicit dates the customer states directly.
- */
-import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { DAY_NAMES_EL } from '@/lib/utils'
 
-type Params = { params: Promise<{ businessId: string }> };
+export async function GET(_req: NextRequest, { params }: { params: { businessId: string } }) {
+  const admin = createAdminClient()
 
-export async function POST(_req: NextRequest, { params }: Params) {
-  const { businessId } = await params;
+  const { data: biz } = await admin
+    .from('businesses')
+    .select('timezone')
+    .eq('id', params.businessId)
+    .single()
 
-  // Look up the business timezone if set (fall back to Cyprus)
-  const supabase = getSupabaseServer();
-  const { data: biz } = await supabase
-    .from("businesses")
-    .select("workflow_settings")
-    .eq("id", businessId)
-    .single();
+  const tz = biz?.timezone ?? 'Europe/Athens'
+  const now = new Date()
 
-  const ws = (biz?.workflow_settings ?? {}) as Record<string, unknown>;
-  const tz = (ws.timezone as string) || "Europe/Nicosia";
+  const formatted = new Intl.DateTimeFormat('el-GR', {
+    timeZone: tz,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(now)
 
-  const now = new Date();
+  // Check if business is open right now
+  const dowLocal = Number(
+    new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' })
+      .format(now)
+      .toLowerCase()
+      .replace(/[^a-z]/g, '')
+  )
 
-  const toLocale = (opts: Intl.DateTimeFormatOptions) =>
-    now.toLocaleString("en-GB", { timeZone: tz, ...opts });
+  // Use JS day (0=Sun)
+  const jsDow = new Date(now.toLocaleString('en-US', { timeZone: tz })).getDay()
+  const timeStr = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(now)
 
-  const current_iso  = now.toLocaleString("sv-SE", { timeZone: tz }).replace(" ", "T") +
-    (() => {
-      const off = -now.getTimezoneOffset();
-      const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
-      const m = String(Math.abs(off) % 60).padStart(2, "0");
-      const sign = off >= 0 ? "+" : "-";
-      // Get the actual offset for the target timezone
-      const fmt = new Intl.DateTimeFormat("en", {
-        timeZone: tz,
-        timeZoneName: "shortOffset",
-      });
-      const parts = fmt.formatToParts(now);
-      const tzPart = parts.find((p) => p.type === "timeZoneName")?.value ?? "UTC";
-      // Parse "GMT+2" or "GMT+02:00"
-      const match = tzPart.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
-      if (match) {
-        const s = match[1];
-        const hh = match[2].padStart(2, "0");
-        const mm = match[3] ?? "00";
-        return `${s}${hh}:${mm}`;
-      }
-      return "+00:00";
-    })();
+  const { data: todayHours } = await admin
+    .from('operating_hours')
+    .select('is_open, open_time, close_time')
+    .eq('business_id', params.businessId)
+    .eq('day_of_week', jsDow)
+    .single()
 
-  const current_date = toLocale({
-    weekday: "long",
-    day:     "numeric",
-    month:   "long",
-    year:    "numeric",
-  });
+  let is_open = false
+  if (todayHours?.is_open && todayHours.open_time && todayHours.close_time) {
+    is_open = timeStr >= todayHours.open_time.slice(0, 5) && timeStr < todayHours.close_time.slice(0, 5)
+  }
 
-  const current_day = toLocale({ weekday: "long" });
-  const current_time = toLocale({ hour: "2-digit", minute: "2-digit", hour12: false });
-
-  return NextResponse.json({
-    current_iso:  now.toISOString(),
-    current_date,
-    current_day,
-    current_time,
-    timezone: tz,
-  });
+  return NextResponse.json({ datetime: formatted, is_open })
 }

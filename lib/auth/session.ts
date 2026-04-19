@@ -1,88 +1,129 @@
-import { cookies } from "next/headers";
-import { randomUUID } from "crypto";
-import {
-  createSession as dbCreateSession,
-  getSessionByToken,
-  deleteSessionByToken,
-  deleteSessionsByUserId,
-} from "@/lib/db/queries/sessions";
-import type { SessionWithUser } from "@/types/db";
+import { createClient, createAdminClient } from '@/lib/db/supabase-server'
+import { redirect } from 'next/navigation'
+import type { BusinessWithMembership, BusinessRole } from '@/types/db'
 
-const COOKIE_NAME = "session_token";
-const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS ?? "8", 10);
+export interface SessionUser {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+}
 
-// ─────────────────────────────────────────────
-// Cookie helpers
-// ─────────────────────────────────────────────
+export interface Session {
+  user: SessionUser
+  businesses: BusinessWithMembership[]
+}
 
-function getSessionCookieOptions(maxAge?: number) {
+/**
+ * Returns the current authenticated user from Supabase Auth.
+ * Returns null if not authenticated — does NOT redirect.
+ */
+export async function getUser(): Promise<SessionUser | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url')
+    .eq('id', user.id)
+    .single()
+
   return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
-    path: "/",
-    maxAge: maxAge ?? SESSION_TTL_HOURS * 60 * 60,
-  };
-}
-
-// ─────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────
-
-/**
- * Create a new session for a user, set the cookie.
- */
-export async function createSession(
-  userId: string,
-  request: { ip?: string; userAgent?: string }
-): Promise<void> {
-  const token = randomUUID();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
-
-  await dbCreateSession(userId, token, expiresAt, request.ip, request.userAgent);
-
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, getSessionCookieOptions());
-}
-
-/**
- * Read the session token from the current request cookie.
- * Returns null if missing or expired.
- */
-export async function getCurrentSession(): Promise<SessionWithUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return getSessionByToken(token);
-}
-
-/**
- * Read the raw session token string from the cookie (for middleware use).
- */
-export async function getSessionToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(COOKIE_NAME)?.value ?? null;
-}
-
-/**
- * Destroy the current session: delete from DB + clear cookie.
- */
-export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (token) {
-    await deleteSessionByToken(token);
+    id: user.id,
+    email: user.email ?? '',
+    full_name: profile?.full_name ?? null,
+    avatar_url: profile?.avatar_url ?? null,
   }
-  cookieStore.set(COOKIE_NAME, "", { ...getSessionCookieOptions(0), maxAge: 0 });
 }
 
 /**
- * Invalidate all sessions for a user (used when admin resets their password).
- * Pass exceptToken to keep the caller's own session alive.
+ * Returns the current user and their business memberships.
+ * Returns null if not authenticated.
  */
-export async function invalidateUserSessions(
-  userId: string,
-  exceptToken?: string
-): Promise<void> {
-  await deleteSessionsByUserId(userId, exceptToken);
+export async function getSession(): Promise<Session | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  // Use admin client for membership query to bypass self-referencing RLS on business_members.
+  // User identity is already verified above via supabase.auth.getUser().
+  const admin = createAdminClient()
+
+  const [profileResult, membershipsResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('full_name, avatar_url')
+      .eq('id', user.id)
+      .single(),
+    admin
+      .from('business_members')
+      .select(`
+        role,
+        businesses (
+          *,
+          business_features (*)
+        )
+      `)
+      .eq('user_id', user.id),
+  ])
+
+  const businesses: BusinessWithMembership[] = (membershipsResult.data ?? [])
+    .filter((m) => m.businesses !== null)
+    .map((m) => {
+      const b = m.businesses as any
+      // business_features is a 1:1 relation returned as array or object depending on Supabase version
+      const feat = Array.isArray(b.business_features)
+        ? (b.business_features[0] ?? null)
+        : (b.business_features ?? null)
+      return {
+        ...b,
+        role: m.role as BusinessRole,
+        features: feat,
+      }
+    })
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email ?? '',
+      full_name: profileResult.data?.full_name ?? null,
+      avatar_url: profileResult.data?.avatar_url ?? null,
+    },
+    businesses,
+  }
+}
+
+/**
+ * Requires an authenticated session — redirects to /login if none exists.
+ * Use at the top of protected Server Components.
+ */
+export async function requireSession(): Promise<Session> {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  return session
+}
+
+/**
+ * Requires the user to be a member of a specific business.
+ * Redirects to /dashboard if they're not.
+ */
+export async function requireBusinessAccess(
+  businessId: string,
+  minRole?: BusinessRole
+): Promise<{ session: Session; business: BusinessWithMembership }> {
+  const session = await requireSession()
+
+  const business = session.businesses.find((b) => b.id === businessId)
+
+  if (!business) redirect('/dashboard')
+
+  if (minRole) {
+    const roleOrder: Record<BusinessRole, number> = { owner: 3, manager: 2, staff: 1 }
+    if (roleOrder[business.role] < roleOrder[minRole]) redirect(`/voice-agent/${businessId}`)
+  }
+
+  return { session, business }
 }

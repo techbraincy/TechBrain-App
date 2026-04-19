@@ -1,4 +1,4 @@
-import OnboardingWizard from "@/components/voice-agent/OnboardingWizard";
+import { OnboardingWizard } from "@/components/voice-agent/OnboardingWizard";
 import { Mic2 } from "lucide-react";
 
 export const metadata = { title: "New Business — Voice Agent" };

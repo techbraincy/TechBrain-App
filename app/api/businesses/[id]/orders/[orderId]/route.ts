@@ -1,79 +1,81 @@
-import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
-import { validateCsrf } from "@/lib/auth/csrf";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient, createAdminClient } from '@/lib/db/supabase-server'
+import { requireBusinessAccess } from '@/lib/auth/session'
+import type { OrderStatus } from '@/types/db'
 
-const ORDER_STATUSES = ["pending", "accepted", "rejected", "preparing", "ready", "out_for_delivery", "completed", "cancelled"] as const;
+const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pending:            ['awaiting_approval', 'accepted', 'cancelled'],
+  awaiting_approval:  ['accepted', 'rejected', 'cancelled'],
+  accepted:           ['preparing', 'cancelled'],
+  rejected:           [],
+  preparing:          ['ready', 'dispatched', 'cancelled'],
+  ready:              ['completed', 'cancelled'],
+  dispatched:         ['completed', 'cancelled'],
+  completed:          [],
+  cancelled:          [],
+}
 
-const schema = z.object({
-  status:              z.enum(ORDER_STATUSES).optional(),
-  staff_notes:         z.string().optional(),
-  estimated_ready_at:  z.string().datetime({ offset: true }).optional().nullable(),
-  note:                z.string().optional(), // status history note
-});
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string; orderId: string } }
+) {
+  const { session } = await requireBusinessAccess(params.id).catch(() => ({ session: null, business: null }))
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-// Timestamps to set per status transition
-const STATUS_TIMESTAMPS: Record<string, string> = {
-  accepted:  "accepted_at",
-  rejected:  "rejected_at",
-  completed: "completed_at",
-};
+  const body = await req.json().catch(() => ({}))
+  const { status, rejection_reason, estimated_minutes } = body
 
-type Params = { params: Promise<{ id: string; orderId: string }> };
+  if (!status) return NextResponse.json({ error: 'status required' }, { status: 400 })
 
-export async function PATCH(req: NextRequest, { params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id");
-  const role   = h.get("x-user-role") ?? "user";
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await validateCsrf(req))) return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  const supabase = createClient()
+  const { data: order } = await supabase
+    .from('orders')
+    .select('status')
+    .eq('id', params.orderId)
+    .eq('business_id', params.id)
+    .single()
 
-  const { id: businessId, orderId } = await params;
-  const body = schema.safeParse(await req.json());
-  if (!body.success) return NextResponse.json({ error: body.error.flatten() }, { status: 400 });
+  if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
-  const supabase = getSupabaseServer();
-
-  if (role !== "superadmin") {
-    const { data: biz } = await supabase
-      .from("businesses").select("user_id").eq("id", businessId).single();
-    if (!biz || biz.user_id !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? []
+  if (!allowed.includes(status)) {
+    return NextResponse.json(
+      { error: `Cannot transition from ${order.status} to ${status}` },
+      { status: 422 }
+    )
   }
 
-  const updates: Record<string, unknown> = {};
-
-  if (body.data.status !== undefined) {
-    updates.status = body.data.status;
-    const tsCol = STATUS_TIMESTAMPS[body.data.status];
-    if (tsCol) updates[tsCol] = new Date().toISOString();
+  const update: Record<string, unknown> = { status }
+  if (status === 'accepted') {
+    update.accepted_by = session.user.id
+    update.accepted_at = new Date().toISOString()
+    if (estimated_minutes) update.estimated_minutes = estimated_minutes
   }
-  if (body.data.staff_notes !== undefined) updates.staff_notes = body.data.staff_notes;
-  if ("estimated_ready_at" in body.data) updates.estimated_ready_at = body.data.estimated_ready_at;
-
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  if (status === 'rejected') {
+    update.rejected_by      = session.user.id
+    update.rejected_at      = new Date().toISOString()
+    update.rejection_reason = rejection_reason ?? null
   }
 
-  const { error } = await supabase
-    .from("business_orders")
-    .update(updates)
-    .eq("id", orderId)
-    .eq("business_id", businessId);
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('orders')
+    .update(update)
+    .eq('id', params.orderId)
+    .select()
+    .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Write status history entry
-  if (body.data.status) {
-    await supabase.from("order_status_history").insert({
-      order_id:   orderId,
-      status:     body.data.status,
-      note:       body.data.note ?? null,
-      created_at: new Date().toISOString(),
-    });
-  }
+  // Audit
+  await admin.from('audit_log').insert({
+    business_id: params.id,
+    user_id:     session.user.id,
+    action:      `order.${status}`,
+    entity_type: 'order',
+    entity_id:   params.orderId,
+    new_data:    { status, rejection_reason },
+  })
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ order: data })
 }

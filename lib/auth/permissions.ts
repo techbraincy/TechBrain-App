@@ -1,55 +1,52 @@
-import type { FeatureKey, Permissions } from "@/types/db";
+import type { BusinessRole, BusinessFeatures } from '@/types/db'
 
-export interface FeatureAccess {
-  orders: boolean;
-  reservations: boolean;
-  analytics: boolean;
-  calendar: boolean;
-  history: boolean;
-  sheets: boolean;
+const ROLE_WEIGHT: Record<BusinessRole, number> = {
+  owner: 3,
+  manager: 2,
+  staff: 1,
 }
 
-/**
- * Resolves which features a user can access.
- * Priority: superadmin → custom permissions → account_type defaults.
- */
-export function resolveAccess(
-  role: string,
-  accountType: string | null,
-  permissions: Permissions | null
-): FeatureAccess {
-  if (role === "superadmin") {
-    return { orders: true, reservations: true, analytics: true, calendar: true, history: true, sheets: true };
-  }
-  if (permissions !== null) {
-    return {
-      orders:       permissions.orders       ?? false,
-      reservations: permissions.reservations ?? false,
-      analytics:    permissions.analytics    ?? false,
-      calendar:     permissions.calendar     ?? false,
-      history:      permissions.history      ?? false,
-      sheets:       permissions.sheets       ?? false,
-    };
-  }
-  // Fall back to account_type defaults
-  return {
-    orders:       !accountType || accountType === "caffe",
-    reservations: !accountType || accountType === "restaurant",
-    analytics:    accountType === "caffe",
-    calendar:     accountType === "restaurant",
-    history:      !accountType || accountType === "caffe" || accountType === "restaurant",
-    sheets:       false,
-  };
+export function hasRole(userRole: BusinessRole, requiredRole: BusinessRole): boolean {
+  return ROLE_WEIGHT[userRole] >= ROLE_WEIGHT[requiredRole]
 }
 
-/** Parse the x-permissions header value into a Permissions object or null. */
-export function parsePermissionsHeader(raw: string | null): Permissions | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as Permissions; }
-  catch { return null; }
+export function isOwner(role: BusinessRole)   { return role === 'owner' }
+export function isManager(role: BusinessRole)  { return hasRole(role, 'manager') }
+export function isStaff(role: BusinessRole)    { return hasRole(role, 'staff') }
+
+export function canManageBusiness(role: BusinessRole)   { return isManager(role) }
+export function canManageMembers(role: BusinessRole)    { return isOwner(role) }
+export function canUpdateAgentConfig(role: BusinessRole) { return isManager(role) }
+export function canApproveOrders(role: BusinessRole)    { return isManager(role) }
+export function canViewAnalytics(role: BusinessRole)    { return isManager(role) }
+
+// Feature flag helpers
+export function featureEnabled(
+  features: BusinessFeatures | null | undefined,
+  flag: keyof Pick<
+    BusinessFeatures,
+    | 'orders_enabled'
+    | 'reservations_enabled'
+    | 'takeaway_enabled'
+    | 'delivery_enabled'
+    | 'staff_approval_enabled'
+    | 'faqs_enabled'
+    | 'customer_portal_enabled'
+    | 'live_tracking_enabled'
+  >
+): boolean {
+  return features?.[flag] === true
 }
 
-/** Returns tenantId string or null. Superadmins have no tenant → null → see all data. */
-export function parseTenantId(raw: string | null): string | null {
-  return raw && raw.length > 0 ? raw : null;
+export function getEnabledModules(features: BusinessFeatures | null | undefined): string[] {
+  if (!features) return []
+  const modules: string[] = []
+  if (features.reservations_enabled) modules.push('reservations')
+  if (features.orders_enabled || features.takeaway_enabled || features.delivery_enabled)
+    modules.push('orders')
+  if (features.delivery_enabled)      modules.push('delivery')
+  if (features.staff_approval_enabled) modules.push('approvals')
+  if (features.faqs_enabled)          modules.push('faqs')
+  if (features.live_tracking_enabled)  modules.push('tracking')
+  return modules
 }

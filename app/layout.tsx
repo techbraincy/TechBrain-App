@@ -1,45 +1,44 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ToastProvider } from "@/components/ui/toast";
+import type { Metadata, Viewport } from 'next'
+import { Inter } from 'next/font/google'
+import { Toaster } from 'sonner'
+import './globals.css'
 
 const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
-});
+  subsets: ['latin', 'greek'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: "TechBrain",
-  description: "Unified operations dashboard",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "TechBrain",
+  title: {
+    template: '%s | VoiceAgent',
+    default: 'VoiceAgent — AI Phone Agent for Businesses',
   },
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
-  },
-};
+  description:
+    'Create a bilingual Greek/English AI phone agent for your business. Handle reservations, orders, FAQs, and more — automatically.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+}
+
+export const viewport: Viewport = {
+  themeColor: '#6366f1',
+  width: 'device-width',
+  initialScale: 1,
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased">
-        <ToastProvider>{children}</ToastProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');`,
+    <html lang="el" suppressHydrationWarning className={inter.variable}>
+      <body>
+        {children}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            classNames: {
+              toast: 'font-sans text-sm',
+            },
           }}
         />
       </body>
     </html>
-  );
+  )
 }

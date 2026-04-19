@@ -1,34 +1,67 @@
-import { notFound } from "next/navigation";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
-import type { Business } from "@/types/agent";
-import OrderTrackingClient from "@/components/portal/OrderTrackingClient";
+import type { Metadata } from 'next'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { notFound } from 'next/navigation'
+import { OrderTrackingClient } from '@/components/portal/OrderTrackingClient'
+import { geocodeAddress } from '@/lib/geocode'
 
-type Params = { params: Promise<{ businessId: string; orderId: string }> };
+interface Props { params: { businessId: string; orderId: string } }
 
-export default async function TrackOrderPage({ params }: Params) {
-  const { businessId, orderId } = await params;
-  const supabase = getSupabaseServer();
+export const metadata: Metadata = { title: 'Κατάσταση παραγγελίας' }
 
-  const [bizRes, orderRes] = await Promise.all([
-    supabase.from("businesses").select("business_name, branding_settings, theme_settings, phone_number, address").eq("id", businessId).single(),
-    supabase.from("business_orders").select("id, customer_name, order_type, items, items_summary, total_amount, status, estimated_ready_at, created_at, accepted_at, completed_at, delivery_address, special_instructions").eq("id", orderId).eq("business_id", businessId).single(),
-  ]);
+export default async function TrackOrderPage({ params }: Props) {
+  const admin = createAdminClient()
+  const ref   = params.orderId.toUpperCase()
+  const isReservation = ref.startsWith('RES-')
 
-  if (bizRes.error || orderRes.error) notFound();
+  let record: any = null
+  let type: 'order' | 'reservation' = 'order'
 
-  const { data: history } = await supabase
-    .from("order_status_history")
-    .select("status, note, created_at")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: true });
+  if (isReservation) {
+    const { data } = await admin
+      .from('reservations')
+      .select('*, business:businesses(name, primary_color, phone, address, city)')
+      .eq('reference', ref)
+      .eq('business_id', params.businessId)
+      .single()
+    record = data
+    type   = 'reservation'
+  } else {
+    const { data } = await admin
+      .from('orders')
+      .select('*, order_items(*), business:businesses(name, primary_color, phone, address, city)')
+      .eq('reference', ref)
+      .eq('business_id', params.businessId)
+      .single()
+    record = data
+    type   = 'order'
+  }
+
+  if (!record) notFound()
+
+  // Geocode addresses server-side for delivery orders (cached 24h by Next.js fetch)
+  let pickupCoords:      [number, number] | null = null
+  let destinationCoords: [number, number] | null = null
+
+  if (type === 'order' && record.type === 'delivery') {
+    const biz = record.business
+    const pickupQuery      = [biz?.address, biz?.city].filter(Boolean).join(', ')
+    const destinationQuery = record.delivery_address
+
+    const [pickup, destination] = await Promise.all([
+      pickupQuery      ? geocodeAddress(pickupQuery)      : Promise.resolve(null),
+      destinationQuery ? geocodeAddress(destinationQuery) : Promise.resolve(null),
+    ])
+
+    pickupCoords      = pickup
+    destinationCoords = destination
+  }
 
   return (
     <OrderTrackingClient
-      business={bizRes.data as Pick<Business, "business_name" | "branding_settings" | "theme_settings" | "phone_number" | "address">}
-      order={orderRes.data as any}
-      history={history ?? []}
-      businessId={businessId}
-      orderId={orderId}
+      record={record}
+      type={type}
+      pickupCoords={pickupCoords}
+      destinationCoords={destinationCoords}
     />
-  );
+  )
 }

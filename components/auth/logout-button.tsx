@@ -1,50 +1,37 @@
-"use client";
+'use client'
 
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/db/supabase-browser'
+import { Button, type ButtonProps } from '@/components/ui/button'
+import { LogOut } from 'lucide-react'
+import { useState } from 'react'
 
-export default function LogoutButton() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+interface LogoutButtonProps extends Omit<ButtonProps, 'onClick'> {
+  showIcon?: boolean
+}
 
-  useEffect(() => {
-    // Re-use the csrf cookie already set; fetch it only if missing
-    const cookie = document.cookie
-      .split(";")
-      .map((c) => c.trim())
-      .find((c) => c.startsWith("csrf="));
-    if (cookie) {
-      setCsrfToken(cookie.split("=")[1]);
-    } else {
-      fetch("/api/auth/csrf")
-        .then((r) => r.json())
-        .then((d) => setCsrfToken(d.csrfToken));
-    }
-  }, []);
+export function LogoutButton({ showIcon = true, children, ...props }: LogoutButtonProps) {
+  const router  = useRouter()
+  const [loading, setLoading] = useState(false)
 
   async function handleLogout() {
-    if (!csrfToken) return;
-    setLoading(true);
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "X-CSRF-Token": csrfToken },
-      });
-      router.push("/login");
-      router.refresh();
-    } catch {
-      setLoading(false);
-    }
+    setLoading(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={handleLogout}
-      disabled={loading || !csrfToken}
-      className="text-sm text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors"
+      loading={loading}
+      {...props}
     >
-      {loading ? "Signing out…" : "Sign out"}
-    </button>
-  );
+      {showIcon && <LogOut className="size-4" />}
+      {children ?? 'Αποσύνδεση'}
+    </Button>
+  )
 }

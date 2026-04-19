@@ -1,117 +1,74 @@
-/**
- * POST /api/agent/[businessId]/check-availability
- *
- * Checks whether a table/slot is available for a given date, time, and party size.
- * Called by the voice agent before asking the customer to confirm a booking.
- *
- * Availability logic:
- *  - Counts total guests already booked in pending/confirmed reservations
- *    within ±30 minutes of the requested time on the same date.
- *  - Compares against max_covers_per_slot from workflow_settings (default 50).
- *  - Also respects max_party_size setting.
- */
-import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/db/supabase-server";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/db/supabase-server'
 
-const schema = z.object({
-  date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  time:       z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Time must be HH:MM"),
-  party_size: z.number().int().min(1).max(100),
-});
+export async function POST(req: NextRequest, { params }: { params: { businessId: string } }) {
+  const admin = createAdminClient()
+  const body  = await req.json().catch(() => ({}))
+  const { date, time, party_size = 1 } = body
 
-type Params = { params: Promise<{ businessId: string }> };
-
-export async function POST(req: NextRequest, { params }: Params) {
-  const { businessId } = await params;
-
-  let rawBody: unknown;
-  try { rawBody = await req.json(); } catch {
-    return NextResponse.json({ available: false, reason: "Invalid request body" }, { status: 400 });
+  if (!date || !time) {
+    return NextResponse.json({ available: false, reason: 'Date and time are required' }, { status: 400 })
   }
 
-  const parsed = schema.safeParse(rawBody);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { available: false, reason: parsed.error.issues[0]?.message ?? "Invalid parameters" },
-      { status: 400 }
-    );
-  }
+  // Fetch config and hours
+  const [{ data: config }, { data: hours }] = await Promise.all([
+    admin.from('reservation_configs').select('*').eq('business_id', params.businessId).single(),
+    admin.from('operating_hours').select('*').eq('business_id', params.businessId),
+  ])
 
-  const { date, time, party_size } = parsed.data;
-  const timeShort = time.slice(0, 5); // "HH:MM"
-
-  const supabase = getSupabaseServer();
-
-  // Load business config
-  const { data: biz, error: bErr } = await supabase
-    .from("businesses")
-    .select("id, reservation_enabled, workflow_settings")
-    .eq("id", businessId)
-    .single();
-
-  if (bErr || !biz) {
-    return NextResponse.json({ available: false, reason: "Business not found" }, { status: 404 });
-  }
-
-  if (!biz.reservation_enabled) {
-    return NextResponse.json({ available: false, reason: "Reservations are not available for this business" });
-  }
-
-  const ws = (biz.workflow_settings ?? {}) as Record<string, unknown>;
-  const maxCoversPerSlot = Number(ws.max_covers_per_slot ?? 50);
-  const maxPartySize     = Number(ws.max_party_size ?? 20);
-
-  // Check party size limit
-  if (party_size > maxPartySize) {
+  // Check party size
+  if (config && party_size > config.max_party_size) {
     return NextResponse.json({
       available: false,
-      reason: `We can only accommodate up to ${maxPartySize} guests per booking. For larger groups, please contact us directly.`,
-    });
+      reason: `Maximum party size is ${config.max_party_size}`,
+    })
   }
 
-  // Build a ±30 minute window around the requested time to detect overlapping reservations
-  const [hh, mm] = timeShort.split(":").map(Number);
-  const slotMins = hh * 60 + mm;
-  const windowStart = slotMins - 30;
-  const windowEnd   = slotMins + 30;
+  // Check advance time constraints
+  const requestedDt = new Date(`${date}T${time}:00`)
+  const now = new Date()
+  const minAdvanceMs = (config?.min_advance_minutes ?? 60) * 60 * 1000
+  const maxAdvanceDays = config?.max_advance_days ?? 30
 
-  const toHHMM = (mins: number) => {
-    const h = Math.floor(Math.abs(mins) / 60) % 24;
-    const m = Math.abs(mins) % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  };
-
-  // Fetch reservations on the same date that overlap the slot window
-  const { data: existing, error: rErr } = await supabase
-    .from("business_reservations")
-    .select("party_size, reservation_time")
-    .eq("business_id", businessId)
-    .eq("reservation_date", date)
-    .in("status", ["pending", "confirmed"])
-    .gte("reservation_time", toHHMM(windowStart))
-    .lte("reservation_time", toHHMM(windowEnd));
-
-  if (rErr) {
-    // Don't block the agent on DB errors — allow and let staff sort it out
-    return NextResponse.json({
-      available: true,
-      message:   `The slot at ${timeShort} on ${date} appears available for ${party_size} guests.`,
-    });
+  if (requestedDt.getTime() - now.getTime() < minAdvanceMs) {
+    return NextResponse.json({ available: false, reason: `Reservations must be made at least ${config?.min_advance_minutes ?? 60} minutes in advance` })
+  }
+  if ((requestedDt.getTime() - now.getTime()) > maxAdvanceDays * 86400000) {
+    return NextResponse.json({ available: false, reason: `Reservations can only be made up to ${maxAdvanceDays} days in advance` })
   }
 
-  const bookedCovers = (existing ?? []).reduce((sum, r) => sum + (r.party_size ?? 0), 0);
-  const remainingCovers = maxCoversPerSlot - bookedCovers;
+  // Check day of week
+  const dow = requestedDt.getDay()
+  const dayHours = hours?.find((h) => h.day_of_week === dow)
 
-  if (remainingCovers < party_size) {
+  if (!dayHours?.is_open || !dayHours.open_time || !dayHours.close_time) {
+    return NextResponse.json({ available: false, reason: 'The business is closed on that day' })
+  }
+
+  if (time < dayHours.open_time.slice(0, 5) || time >= dayHours.close_time.slice(0, 5)) {
     return NextResponse.json({
       available: false,
-      reason: `Unfortunately we're fully booked around ${timeShort} on ${date}. Would you like to try a different time?`,
-    });
+      reason: `Outside business hours (${dayHours.open_time.slice(0, 5)}–${dayHours.close_time.slice(0, 5)})`,
+    })
   }
 
+  // Check existing reservations at that slot
+  const slotStart = `${date}T${time}:00`
+  const duration  = config?.slot_duration_minutes ?? 60
+  const slotEnd   = new Date(new Date(slotStart).getTime() + duration * 60000).toISOString()
+
+  const { data: existing } = await admin
+    .from('reservations')
+    .select('id')
+    .eq('business_id', params.businessId)
+    .gte('reserved_at', slotStart)
+    .lt('reserved_at', slotEnd)
+    .not('status', 'in', '("rejected","cancelled","no_show")')
+
+  // Simple availability: slot is available if there's room (for now we allow unlimited, can be capped later)
   return NextResponse.json({
     available: true,
-    message:   `The slot at ${timeShort} on ${date} is available for ${party_size} guests.`,
-  });
+    slot_datetime: slotStart,
+    existing_reservations: existing?.length ?? 0,
+  })
 }

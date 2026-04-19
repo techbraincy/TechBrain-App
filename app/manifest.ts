@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "TechBrain Operations",
-    short_name: "TechBrain",
-    description: "Unified restaurant & café operations dashboard",
+    name: "VoiceAgent",
+    short_name: "VoiceAgent",
+    description: "AI Phone Agent for your business",
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#ffffff",

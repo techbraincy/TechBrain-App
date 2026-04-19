@@ -1,62 +1,80 @@
-import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/auth/session";
-import LoginForm from "@/components/auth/login-form";
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { LoginForm } from '@/components/auth/login-form'
+import { PhoneCall } from 'lucide-react'
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string }>;
-}) {
-  const { next } = await searchParams;
-  const session = await getCurrentSession();
-  if (session) redirect(next ?? "/dashboard");
+export const metadata: Metadata = { title: 'Σύνδεση' }
 
+export default function LoginPage() {
   return (
-    <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden px-4"
-      style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #1e3a5f 65%, #0f172a 100%)" }}
-    >
-      {/* Decorative blobs */}
-      <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full opacity-20 blur-[120px] pointer-events-none"
-        style={{ background: "radial-gradient(circle, #8b5cf6, transparent 70%)" }} />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full opacity-15 blur-[120px] pointer-events-none"
-        style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }} />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-5 blur-[160px] pointer-events-none"
-        style={{ background: "radial-gradient(circle, #a78bfa, transparent 70%)" }} />
-
-      {/* Dot grid */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
-
-      <div className="w-full max-w-[420px] relative animate-fade-up z-10">
-        {/* Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex flex-col items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-xl">
-              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">TechBrain</h1>
-              <p className="text-sm text-white/50 mt-0.5">Operations Platform</p>
-            </div>
+    <div className="flex min-h-screen">
+      {/* Left panel — brand */}
+      <div className="hidden lg:flex lg:w-[44%] flex-col justify-between bg-[#1e1b4b] p-12 text-white">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/20 backdrop-blur">
+            <PhoneCall className="size-4 text-indigo-300" />
           </div>
+          <span className="text-lg font-semibold tracking-tight">VoiceAgent</span>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-3xl p-8" style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.4)" }}>
-          <div className="mb-7">
-            <h2 className="text-xl font-bold text-gray-900">Welcome back</h2>
-            <p className="text-sm text-gray-500 mt-1">Sign in to your workspace to continue</p>
-          </div>
-          <LoginForm next={next} />
+        <div className="space-y-5">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight">
+            Ο AI βοηθός σου<br />
+            απαντά στο τηλέφωνο.<br />
+            <span className="text-indigo-300">Πάντα.</span>
+          </h1>
+          <p className="text-indigo-200/80 text-base leading-relaxed max-w-xs">
+            Δημιούργησε έναν AI phone agent για την επιχείρησή σου σε λίγα λεπτά.
+            Κρατήσεις, παραγγελίες, FAQs — όλα αυτοματοποιημένα.
+          </p>
         </div>
 
-        <p className="text-center text-xs text-white/30 mt-6">
-          Secured with end-to-end encryption
-        </p>
+        <div className="space-y-3">
+          <Testimonial
+            quote="Χάσαμε πολύ λιγότερες κλήσεις από τότε που ενεργοποιήσαμε τον agent."
+            author="Σοφία Κ."
+            role="Ιδιοκτήτρια εστιατορίου"
+          />
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+        {/* Mobile logo */}
+        <div className="mb-8 flex items-center gap-2 lg:hidden">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+            <PhoneCall className="size-4 text-white" />
+          </div>
+          <span className="text-lg font-semibold">VoiceAgent</span>
+        </div>
+
+        <div className="w-full max-w-sm space-y-6">
+          <div className="space-y-1.5">
+            <h2 className="text-2xl font-semibold tracking-tight">Καλώς ήρθες πίσω</h2>
+            <p className="text-sm text-muted-foreground">
+              Σύνδεσε τον λογαριασμό σου για να συνεχίσεις
+            </p>
+          </div>
+
+          <Suspense>
+            <LoginForm />
+          </Suspense>
+        </div>
       </div>
     </div>
-  );
+  )
+}
+
+function Testimonial({
+  quote, author, role,
+}: { quote: string; author: string; role: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+      <p className="text-sm text-indigo-100/90 leading-relaxed">"{quote}"</p>
+      <div>
+        <p className="text-sm font-medium text-white">{author}</p>
+        <p className="text-xs text-indigo-300/70">{role}</p>
+      </div>
+    </div>
+  )
 }

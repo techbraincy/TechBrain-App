@@ -1,369 +1,274 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Mic2, Volume2, Globe, Sparkles, Save, Check, RefreshCw, Play } from "lucide-react";
-import type { BusinessWithAgent, ElevenLabsVoice } from "@/types/agent";
-import AgentSyncButton from "./AgentSyncButton";
+import { useState } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
+import { Bot, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
+import type { AgentConfig } from '@/types/db'
 
-const PERSONALITIES = [
-  { value: "professional", label: "Professional" },
-  { value: "friendly",     label: "Friendly" },
-  { value: "formal",       label: "Formal" },
-  { value: "casual",       label: "Casual" },
-  { value: "energetic",    label: "Energetic" },
-  { value: "calm",         label: "Calm" },
-];
+const schema = z.object({
+  agent_name:               z.string().min(1),
+  language:                 z.enum(['greek', 'english', 'bilingual']),
+  tone:                     z.enum(['professional', 'friendly', 'casual']),
+  greeting_greek:           z.string().optional(),
+  greeting_english:         z.string().optional(),
+  custom_instructions:      z.string().optional(),
+  escalation_enabled:       z.boolean(),
+  escalation_phone:         z.string().optional(),
+  escalation_message_greek: z.string().optional(),
+  escalation_message_english: z.string().optional(),
+})
+type FormData = z.infer<typeof schema>
+
+const LANGUAGES = [
+  { value: 'bilingual', label: 'Bilingual 🇬🇷 🇬🇧' },
+  { value: 'greek',     label: 'Ελληνικά μόνο' },
+  { value: 'english',   label: 'English only' },
+] as const
 
 const TONES = [
-  { value: "helpful",    label: "Helpful" },
-  { value: "assertive",  label: "Assertive" },
-  { value: "empathetic", label: "Empathetic" },
-  { value: "concise",    label: "Concise" },
-  { value: "detailed",   label: "Detailed" },
-];
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4"
-         style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
-      {children}
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange, rows = 4, hint, mono }: {
-  label: string; value: string; onChange: (v: string) => void;
-  rows?: number; hint?: string; mono?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
-        className={`w-full px-3.5 py-2.5 text-sm bg-white border border-gray-200 rounded-xl outline-none transition-all focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none ${mono ? "font-mono text-xs" : ""}`}
-      />
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
-    </div>
-  );
-}
-
-function Input({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-200 rounded-xl outline-none transition-all focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-      />
-    </div>
-  );
-}
-
-function Slider({ label, value, onChange, min, max, step = 0.05 }: {
-  label: string; value: number; onChange: (v: number) => void;
-  min: number; max: number; step?: number;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-sm font-semibold text-violet-600">{value.toFixed(2)}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-violet-600"
-      />
-      <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-        <span>{min}</span>
-        <span>{max}</span>
-      </div>
-    </div>
-  );
-}
+  { value: 'professional', label: 'Επαγγελματικό' },
+  { value: 'friendly',     label: 'Φιλικό' },
+  { value: 'casual',       label: 'Χαλαρό' },
+] as const
 
 interface Props {
-  business: BusinessWithAgent;
+  businessId:  string
+  agentConfig: AgentConfig | null
+  agentId:     string | null
 }
 
-export default function AgentConfigClient({ business }: Props) {
-  const router = useRouter();
-  const agent  = business.agent;
+export function AgentConfigClient({ businessId, agentConfig, agentId }: Props) {
+  const [syncing, setSyncing] = useState(false)
+  const [saving, setSaving]   = useState(false)
 
-  const [agentName,   setAgentName]   = useState(agent?.agent_name ?? `${business.business_name} Assistant`);
-  const [personality, setPersonality] = useState(agent?.personality ?? "professional");
-  const [tone,        setTone]        = useState(agent?.tone ?? "helpful");
+  const { register, handleSubmit, watch, setValue, control, formState: { errors, isDirty } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      agent_name:               agentConfig?.agent_name ?? 'Assistant',
+      language:                 agentConfig?.language ?? 'bilingual',
+      tone:                     agentConfig?.tone ?? 'friendly',
+      greeting_greek:           agentConfig?.greeting_greek ?? '',
+      greeting_english:         agentConfig?.greeting_english ?? '',
+      custom_instructions:      agentConfig?.custom_instructions ?? '',
+      escalation_enabled:       agentConfig?.escalation_enabled ?? false,
+      escalation_phone:         agentConfig?.escalation_phone ?? '',
+      escalation_message_greek: agentConfig?.escalation_message_greek ?? '',
+      escalation_message_english: agentConfig?.escalation_message_english ?? '',
+    },
+  })
 
-  const [voices,         setVoices]         = useState<ElevenLabsVoice[]>([]);
-  const [voicesLoading,  setVoicesLoading]  = useState(false);
-  const [selectedVoice,  setSelectedVoice]  = useState(business.agent_voice_settings?.voice_id ?? "");
-  const [stability,      setStability]      = useState(business.agent_voice_settings?.stability ?? 0.5);
-  const [similarity,     setSimilarity]     = useState(business.agent_voice_settings?.similarity_boost ?? 0.75);
-  const [speed,          setSpeed]          = useState(business.agent_voice_settings?.speed ?? 1.0);
+  const language   = watch('language')
+  const escalation = watch('escalation_enabled')
 
-  const [greetingEl, setGreetingEl] = useState(business.greeting_settings?.greeting_el ?? "");
-  const [greetingEn, setGreetingEn] = useState(business.greeting_settings?.greeting_en ?? "");
-  const [farewellEl, setFarewellEl] = useState(business.greeting_settings?.farewell_el ?? "");
-  const [farewellEn, setFarewellEn] = useState(business.greeting_settings?.farewell_en ?? "");
-
-  const [systemPrompt, setSystemPrompt] = useState(agent?.system_prompt ?? "");
-
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
-  const [preview, setPreview] = useState<HTMLAudioElement | null>(null);
-
-  // Load voices
-  useEffect(() => {
-    setVoicesLoading(true);
-    fetch("/api/voices")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setVoices(data);
-      })
-      .catch(() => {})
-      .finally(() => setVoicesLoading(false));
-  }, []);
-
-  function playPreview(url: string | null) {
-    if (!url) return;
-    if (preview) { preview.pause(); preview.currentTime = 0; }
-    const audio = new Audio(url);
-    audio.play();
-    setPreview(audio);
-  }
-
-  async function save() {
-    setSaving(true);
-    const selectedVoiceObj = voices.find((v) => v.voice_id === selectedVoice);
+  async function saveConfig(values: FormData) {
+    setSaving(true)
     try {
-      // Update agent settings
-      await fetch(`/api/businesses/${business.id}/agent`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agent_name:  agentName,
-          personality,
-          tone,
-          voice_id:   selectedVoice || null,
-          voice_name: selectedVoiceObj?.name ?? null,
-        }),
-      });
-
-      // Update business voice + greeting settings
-      await fetch(`/api/businesses/${business.id}`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agent_voice_settings: {
-            voice_id:         selectedVoice,
-            voice_name:       selectedVoiceObj?.name ?? "",
-            stability,
-            similarity_boost: similarity,
-            style:            0.0,
-            speed,
-          },
-          greeting_settings: {
-            greeting_el: greetingEl,
-            greeting_en: greetingEn,
-            farewell_el: farewellEl,
-            farewell_en: farewellEn,
-            on_hold_message: "Please hold for a moment...",
-          },
-        }),
-      });
-
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      router.refresh();
-    } catch { /* error handled by UI */ }
-    finally { setSaving(false); }
+      const res = await fetch(`/api/businesses/${businessId}/agent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast.success('Ρυθμίσεις αποθηκεύτηκαν')
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const hasElevenLabsKey = true; // Checked server-side; client just shows the button
+  async function syncAgent() {
+    setSyncing(true)
+    try {
+      const res = await fetch(`/api/businesses/${businessId}/agent/sync`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      toast.success('Agent συγχρονίστηκε επιτυχώς')
+      window.location.reload()
+    } catch (e: any) {
+      toast.error(`Αποτυχία συγχρονισμού: ${e.message}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const syncStatus = agentConfig?.sync_status
 
   return (
-    <div className="space-y-5">
-      {/* Agent identity */}
-      <Section title="Agent Identity">
-        <Input
-          label="Agent Name"
-          value={agentName}
-          onChange={setAgentName}
-          placeholder={`${business.business_name} Assistant`}
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Personality</label>
-          <div className="flex flex-wrap gap-2">
-            {PERSONALITIES.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPersonality(p.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                  personality === p.value
-                    ? "bg-violet-600 text-white border-violet-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tone</label>
-          <div className="flex flex-wrap gap-2">
-            {TONES.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setTone(t.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                  tone === t.value
-                    ? "bg-violet-600 text-white border-violet-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* Voice selection */}
-      <Section title="Voice">
-        {voicesLoading ? (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="w-4 h-4 border-2 border-gray-200 border-t-violet-500 rounded-full animate-spin" />
-            Loading voices...
-          </div>
-        ) : voices.length === 0 ? (
-          <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            Could not load ElevenLabs voices. Make sure ELEVENLABS_API_KEY is set.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {voices.map((v) => (
-              <div
-                key={v.voice_id}
-                onClick={() => setSelectedVoice(v.voice_id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
-                  selectedVoice === v.voice_id
-                    ? "border-violet-400 bg-violet-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800">{v.name}</p>
-                  <p className="text-xs text-gray-400 capitalize">{v.category}</p>
-                  {v.labels && Object.keys(v.labels).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {Object.entries(v.labels).slice(0, 3).map(([k, val]) => (
-                        <span key={k} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
-                          {val}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {v.preview_url && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); playPreview(v.preview_url); }}
-                    className="p-2 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
-                    title="Preview voice"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                  </button>
-                )}
+    <div className="space-y-6">
+      {/* Status card */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              'flex size-12 items-center justify-center rounded-xl',
+              agentId ? 'bg-emerald-100' : 'bg-amber-100'
+            )}>
+              <Bot className={cn('size-6', agentId ? 'text-emerald-600' : 'text-amber-600')} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold">ElevenLabs Agent</p>
+                {syncStatus === 'synced' && <Badge variant="success" className="gap-1"><CheckCircle2 className="size-3" /> Συγχρονισμένος</Badge>}
+                {syncStatus === 'failed' && <Badge variant="destructive" className="gap-1"><AlertCircle className="size-3" /> Αποτυχία</Badge>}
+                {syncStatus === 'pending' && <Badge variant="warning">Εκκρεμεί</Badge>}
               </div>
-            ))}
+              {agentId
+                ? <p className="text-xs text-muted-foreground font-mono mt-0.5">{agentId}</p>
+                : <p className="text-sm text-muted-foreground mt-0.5">Ο agent δεν έχει δημιουργηθεί ακόμα</p>
+              }
+              {agentConfig?.sync_error && (
+                <p className="text-xs text-destructive mt-1">{agentConfig.sync_error}</p>
+              )}
+            </div>
+            <Button
+              variant={agentId ? 'outline' : 'default'}
+              size="sm"
+              onClick={syncAgent}
+              loading={syncing}
+              className="gap-2 shrink-0"
+            >
+              <RefreshCw className="size-4" />
+              {agentId ? 'Επανασύνδεση' : 'Δημιουργία agent'}
+            </Button>
           </div>
-        )}
 
-        <div className="pt-2 grid sm:grid-cols-3 gap-4">
-          <Slider label="Stability"   value={stability}  onChange={setStability}  min={0} max={1} />
-          <Slider label="Similarity"  value={similarity} onChange={setSimilarity} min={0} max={1} />
-          <Slider label="Speed"       value={speed}      onChange={setSpeed}      min={0.5} max={2.0} step={0.1} />
-        </div>
-      </Section>
-
-      {/* Language & Greetings */}
-      <Section title="Language & Greetings">
-        <p className="text-xs text-gray-500 -mt-1">
-          The agent automatically detects Greek or English and responds in the same language.
-        </p>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Textarea label="Greek greeting"  value={greetingEl} onChange={setGreetingEl} rows={2} />
-          <Textarea label="English greeting" value={greetingEn} onChange={setGreetingEn} rows={2} />
-          <Textarea label="Greek farewell"   value={farewellEl} onChange={setFarewellEl} rows={2} />
-          <Textarea label="English farewell" value={farewellEn} onChange={setFarewellEn} rows={2} />
-        </div>
-      </Section>
-
-      {/* System prompt preview */}
-      {agent?.system_prompt && (
-        <Section title="System Prompt Preview">
-          <p className="text-xs text-gray-400 -mt-1">
-            Auto-generated from your business data. Re-sync to update after making changes.
-          </p>
-          <div className="max-h-64 overflow-y-auto">
-            <Textarea
-              label=""
-              value={agent.system_prompt}
-              onChange={setSystemPrompt}
-              rows={14}
-              mono
-              hint="This is what the AI agent receives as instructions. Edit carefully — changes here require a re-sync."
-            />
-          </div>
-        </Section>
-      )}
-
-      {/* Actions */}
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
-        >
-          {saving ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Saving...
-            </>
-          ) : saved ? (
-            <>
-              <Check className="w-4 h-4" /> Saved!
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" /> Save Changes
-            </>
+          {agentConfig?.last_synced_at && (
+            <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
+              Τελευταίος συγχρονισμός: {new Date(agentConfig.last_synced_at).toLocaleString('el-GR')}
+            </p>
           )}
-        </button>
+        </CardContent>
+      </Card>
 
-        <AgentSyncButton
-          businessId={business.id}
-          agentStatus={agent?.status}
-          hasElevenLabs={hasElevenLabsKey}
-        />
-      </div>
+      {/* Config form */}
+      <form onSubmit={handleSubmit(saveConfig)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ταυτότητα & Γλώσσα</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-1.5">
+              <Label>Όνομα agent</Label>
+              <Input placeholder="π.χ. Maria, Alex, Assistant" {...register('agent_name')} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Γλώσσα</Label>
+              <div className="flex gap-2">
+                {LANGUAGES.map((l) => (
+                  <button key={l.value} type="button"
+                    onClick={() => setValue('language', l.value, { shouldDirty: true })}
+                    className={cn(
+                      'flex-1 rounded-lg border px-3 py-2 text-sm transition-colors',
+                      language === l.value ? 'border-primary bg-primary/5 font-medium' : 'border-border hover:border-primary/40'
+                    )}>
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ύφος επικοινωνίας</Label>
+              <div className="flex gap-2">
+                {TONES.map((t) => (
+                  <button key={t.value} type="button"
+                    onClick={() => setValue('tone', t.value, { shouldDirty: true })}
+                    className={cn(
+                      'flex-1 rounded-lg border px-3 py-2 text-sm transition-colors',
+                      watch('tone') === t.value ? 'border-primary bg-primary/5 font-medium' : 'border-border hover:border-primary/40'
+                    )}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Χαιρετισμοί</CardTitle>
+            <CardDescription>Η πρώτη πρόταση που θα ακούσει ο καλών</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(language === 'greek' || language === 'bilingual') && (
+              <div className="space-y-1.5">
+                <Label>Ελληνικά</Label>
+                <Input placeholder="Καλημέρα σας, μιλάτε με…" {...register('greeting_greek')} />
+              </div>
+            )}
+            {(language === 'english' || language === 'bilingual') && (
+              <div className="space-y-1.5">
+                <Label>English</Label>
+                <Input placeholder="Hello, you've reached…" {...register('greeting_english')} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Επιπλέον οδηγίες</CardTitle>
+            <CardDescription>Κανόνες που προστίθενται στο system prompt</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea rows={4} placeholder="π.χ. Μην δέχεσαι παραγγελίες για περισσότερα από 50 άτομα…" {...register('custom_instructions')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Σύνδεση με προσωπικό</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Controller control={control} name="escalation_enabled"
+                render={({ field }) => <Switch checked={field.value} onCheckedChange={field.onChange} />}
+              />
+              <Label>Ενεργοποίηση escalation σε ανθρώπινο προσωπικό</Label>
+            </div>
+            {escalation && (
+              <div className="space-y-3 pl-1">
+                <div className="space-y-1.5">
+                  <Label>Τηλέφωνο προσωπικού</Label>
+                  <Input type="tel" placeholder="+30 69..." {...register('escalation_phone')} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Μήνυμα escalation (Ελληνικά)</Label>
+                  <Input placeholder="Θα σας συνδέσω με το προσωπικό μας." {...register('escalation_message_greek')} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Escalation message (English)</Label>
+                  <Input placeholder="Let me connect you with our staff." {...register('escalation_message_english')} />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Μετά την αποθήκευση, κάντε «Επανασύνδεση» για να ενημερωθεί ο agent.
+          </p>
+          <Button type="submit" loading={saving} disabled={!isDirty}>
+            Αποθήκευση αλλαγών
+          </Button>
+        </div>
+      </form>
     </div>
-  );
+  )
 }

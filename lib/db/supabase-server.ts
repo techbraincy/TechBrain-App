@@ -1,42 +1,46 @@
-/**
- * Server-only Supabase client.
- * NEVER import this in Client Components or any file with 'use client'.
- *
- * Uses the SERVICE ROLE key — bypasses all Row Level Security.
- * Uses the POOLED connection string (PgBouncer, port 6543) to avoid
- * connection exhaustion across Vercel's parallel serverless instances.
- */
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-function getRequiredEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
+/**
+ * Server-side Supabase client for use in Server Components, Server Actions,
+ * and Route Handlers. Uses the anon key — respects RLS.
+ */
+export function createClient() {
+  const cookieStore = cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Can't set cookies inside a Server Component render.
+            // The middleware handles token refresh for those cases.
+          }
+        },
+      },
+    }
+  )
 }
 
 /**
- * Returns a fresh Supabase client per call.
- * Do NOT create a module-level singleton — Vercel's serverless
- * environment can share module state across requests, which can
- * leak context. Create per-request instead.
+ * Admin client using the service role key. Bypasses RLS.
+ * ONLY use in trusted server contexts (provisioning, webhooks).
+ * Never expose to the client.
  */
-export function getSupabaseServer() {
-  return createClient(
-    getRequiredEnv("SUPABASE_URL"),
-    getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        // Disable client-side session persistence — this is a server client
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-      db: {
-        // Use the pooled connection string for Vercel (PgBouncer, port 6543)
-        // Set SUPABASE_URL to the pooled URL in your Vercel env vars:
-        // e.g. postgresql://postgres.xxxx:password@aws-0-xx.pooler.supabase.com:6543/postgres
-      },
-    }
-  );
+export function createAdminClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 }

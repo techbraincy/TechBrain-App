@@ -1,112 +1,75 @@
-/**
- * POST /api/businesses/[id]/agent/sync
- *
- * Creates or updates the ElevenLabs agent for this business.
- * This is the main integration endpoint — it reads the business config,
- * builds the agent payload, and calls ElevenLabs to create/update.
- */
-import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { getBusinessById, getAgentByBusinessId, upsertAgent, setAgentStatus } from "@/lib/db/queries/businesses";
-import { createAgent, updateAgent as elUpdateAgent, deleteAgent } from "@/lib/elevenlabs/client";
-import { buildAgentConfig } from "@/lib/elevenlabs/agent-builder";
-import type { ElevenLabsAgent } from "@/types/agent";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/db/supabase-server'
+import { requireBusinessAccess } from '@/lib/auth/session'
+import { buildAgentPayload } from '@/lib/elevenlabs/agent-builder'
+import { syncAgent } from '@/lib/elevenlabs/client'
 
-type Params = { params: Promise<{ id: string }> };
+export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+  const { session } = await requireBusinessAccess(params.id, 'manager').catch(() => ({ session: null, business: null }))
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-export async function POST(_req: NextRequest, { params }: Params) {
-  const h = await headers();
-  const userId = h.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!process.env.ELEVENLABS_API_KEY) {
+    return NextResponse.json({ error: 'ELEVENLABS_API_KEY not configured' }, { status: 503 })
+  }
 
-  const { id } = await params;
+  const admin = createAdminClient()
+
+  const [bizRes, featRes, agentRes, hoursRes, menuRes, faqRes, resConfigRes, delConfigRes] = await Promise.all([
+    admin.from('businesses').select('*').eq('id', params.id).single(),
+    admin.from('business_features').select('*').eq('business_id', params.id).single(),
+    admin.from('agent_configs').select('*').eq('business_id', params.id).single(),
+    admin.from('operating_hours').select('*').eq('business_id', params.id),
+    admin.from('menu_items').select('*').eq('business_id', params.id).eq('is_active', true),
+    admin.from('faqs').select('*').eq('business_id', params.id).eq('is_active', true),
+    admin.from('reservation_configs').select('*').eq('business_id', params.id).maybeSingle(),
+    admin.from('delivery_configs').select('*').eq('business_id', params.id).maybeSingle(),
+  ])
+
+  if (!bizRes.data || !featRes.data || !agentRes.data) {
+    return NextResponse.json({ error: 'Business config not found' }, { status: 404 })
+  }
+
+  // Mark as syncing
+  await admin.from('agent_configs').update({ sync_status: 'pending', sync_error: null }).eq('business_id', params.id)
 
   try {
-    // 1. Fetch the business (with ownership check)
-    const business = await getBusinessById(id, userId);
-    if (!business) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    const payload = buildAgentPayload({
+      business:          bizRes.data as any,
+      features:          featRes.data as any,
+      agentConfig:       agentRes.data as any,
+      hours:             hoursRes.data ?? [],
+      menuItems:         menuRes.data ?? [],
+      faqs:              faqRes.data ?? [],
+      reservationConfig: resConfigRes.data ?? undefined,
+      deliveryConfig:    delConfigRes.data ?? undefined,
+    })
 
-    // 2. Get or create agent record in DB
-    let agent = await getAgentByBusinessId(id);
-    if (!agent) {
-      agent = await upsertAgent({
-        business_id:         id,
-        elevenlabs_agent_id: null,
-        agent_name:          `${business.business_name} Assistant`,
-        voice_id:            null,
-        voice_name:          null,
-        system_prompt:       null,
-        language_settings:   {} as never,
-        personality:         "professional",
-        tone:                "helpful",
-        capabilities:        {},
-        status:              "pending",
-        last_synced_at:      null,
-        error_message:       null,
-      });
-    }
+    const newAgentId = await syncAgent(bizRes.data.elevenlabs_agent_id, payload)
 
-    // 3. Mark as creating
-    await setAgentStatus(id, "creating");
+    await Promise.all([
+      admin.from('businesses').update({ elevenlabs_agent_id: newAgentId }).eq('id', params.id),
+      admin.from('agent_configs').update({
+        sync_status:    'synced',
+        sync_error:     null,
+        last_synced_at: new Date().toISOString(),
+      }).eq('business_id', params.id),
+    ])
 
-    // 4. Build the agent config from business data
-    const config = buildAgentConfig(business, agent as Partial<ElevenLabsAgent>);
+    await admin.from('audit_log').insert({
+      business_id: params.id,
+      user_id:     session.user.id,
+      action:      'agent.synced',
+      entity_type: 'agent_config',
+      new_data:    { agent_id: newAgentId },
+    })
 
-    let elAgentId = agent.elevenlabs_agent_id;
+    return NextResponse.json({ success: true, agentId: newAgentId })
+  } catch (err: any) {
+    await admin.from('agent_configs').update({
+      sync_status: 'failed',
+      sync_error:  err.message,
+    }).eq('business_id', params.id)
 
-    try {
-      if (elAgentId) {
-        // Delete the old agent and recreate it from scratch.
-        // ElevenLabs PATCH merges tool properties by name, so stale fields
-        // (e.g. is_system_provided on caller_id) persist across updates.
-        // A fresh create guarantees a clean config every time.
-        await deleteAgent(elAgentId).catch(() => {}); // ignore if already gone
-        const created = await createAgent(config);
-        elAgentId = created.agent_id;
-      } else {
-        // Create new ElevenLabs agent
-        const created = await createAgent(config);
-        elAgentId = created.agent_id;
-      }
-    } catch (elError) {
-      const msg = elError instanceof Error ? elError.message : "ElevenLabs error";
-      await setAgentStatus(id, "error", { error_message: msg });
-      // Return the full payload so the caller can debug the tool schema
-      return NextResponse.json({
-        error:          `ElevenLabs error: ${msg}`,
-        debug_payload:  config,
-        tool_count:     (config.conversation_config.agent.prompt.tools as unknown[])?.length ?? 0,
-      }, { status: 502 });
-    }
-
-    // 5. Persist the ElevenLabs agent ID and mark active
-    await setAgentStatus(id, "active", {
-      elevenlabs_agent_id: elAgentId!,
-      last_synced_at:      new Date().toISOString(),
-      system_prompt:       config.conversation_config.agent.prompt.prompt,
-    });
-
-    // 6. Also mark onboarding complete if not already
-    if (!business.onboarding_complete) {
-      const supabase = (await import("@/lib/db/supabase-server")).getSupabaseServer();
-      await supabase
-        .from("businesses")
-        .update({ onboarding_complete: true })
-        .eq("id", id);
-    }
-
-    // 7. Return success with the ElevenLabs agent ID
-    const updatedAgent = await getAgentByBusinessId(id);
-    const toolCount = (config.conversation_config.agent.prompt.tools as unknown[])?.length ?? 0;
-    return NextResponse.json({
-      success:             true,
-      elevenlabs_agent_id: elAgentId,
-      tools_registered:    toolCount,
-      agent:               updatedAgent,
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    await setAgentStatus(id, "error", { error_message: msg }).catch(() => {});
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 502 })
   }
 }
