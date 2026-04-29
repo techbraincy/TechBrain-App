@@ -38,7 +38,7 @@ const inputBase: React.CSSProperties = {
 }
 
 const inputFocused: React.CSSProperties = {
-  borderBottomColor: '#111110',
+  borderBottomColor: '#0D0D0C',
 }
 
 const labelBase: React.CSSProperties = {
@@ -48,7 +48,7 @@ const labelBase: React.CSSProperties = {
   fontWeight: 600,
   letterSpacing: '0.12em',
   textTransform: 'uppercase' as const,
-  color: '#B8B4AE',
+  color: '#9A9590',
   marginBottom: 10,
 }
 
@@ -88,10 +88,17 @@ export function RegisterForm() {
     router.refresh()
   }
 
-  const field = (name: FieldName) => ({
-    style: { ...inputBase, ...(focus === name ? inputFocused : {}) },
-    onFocus: () => setFocus(name),
+  const fieldStyle = (name: FieldName, extra?: React.CSSProperties): React.CSSProperties => ({
+    ...inputBase,
+    ...(focus === name ? inputFocused : {}),
+    ...extra,
   })
+
+  const toggleStyle: React.CSSProperties = {
+    position: 'absolute', right: 0, bottom: 10,
+    background: 'none', border: 'none', padding: 0,
+    cursor: 'pointer', color: '#C4C0BA', display: 'flex', alignItems: 'center',
+  }
 
   return (
     <form
@@ -99,13 +106,14 @@ export function RegisterForm() {
       style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
     >
       {/* Full name */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 22 }}>
         <label htmlFor="full_name" style={labelBase}>Ονοματεπώνυμο</label>
         <input
           id="full_name"
           placeholder="Γιάννης Παπαδόπουλος"
           autoComplete="name"
-          {...field('full_name')}
+          style={fieldStyle('full_name')}
+          onFocus={() => setFocus('full_name')}
           {...register('full_name', { onBlur: () => setFocus(null) })}
         />
         {errors.full_name && (
@@ -116,14 +124,15 @@ export function RegisterForm() {
       </div>
 
       {/* Email */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 22 }}>
         <label htmlFor="email" style={labelBase}>Email</label>
         <input
           id="email"
           type="email"
           placeholder="you@example.com"
           autoComplete="email"
-          {...field('email')}
+          style={fieldStyle('email')}
+          onFocus={() => setFocus('email')}
           {...register('email', { onBlur: () => setFocus(null) })}
         />
         {errors.email && (
@@ -134,7 +143,7 @@ export function RegisterForm() {
       </div>
 
       {/* Password */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 22 }}>
         <label htmlFor="password" style={labelBase}>Κωδικός</label>
         <div style={{ position: 'relative' }}>
           <input
@@ -142,20 +151,12 @@ export function RegisterForm() {
             type={showPw ? 'text' : 'password'}
             placeholder="Τουλάχιστον 8 χαρακτήρες"
             autoComplete="new-password"
-            {...field('password')}
-            style={{ ...field('password').style, paddingRight: 32 }}
+            style={fieldStyle('password', { paddingRight: 32 })}
+            onFocus={() => setFocus('password')}
             {...register('password', { onBlur: () => setFocus(null) })}
           />
-          <button
-            type="button"
-            onClick={() => setShowPw((v) => !v)}
-            aria-label={showPw ? 'Hide password' : 'Show password'}
-            style={{
-              position: 'absolute', right: 0, bottom: 10,
-              background: 'none', border: 'none', padding: 0,
-              cursor: 'pointer', color: '#C4C0BA', display: 'flex', alignItems: 'center',
-            }}
-          >
+          <button type="button" onClick={() => setShowPw((v) => !v)}
+            aria-label={showPw ? 'Hide password' : 'Show password'} style={toggleStyle}>
             {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
@@ -167,7 +168,7 @@ export function RegisterForm() {
       </div>
 
       {/* Confirm password */}
-      <div style={{ marginBottom: 50 }}>
+      <div style={{ marginBottom: 48 }}>
         <label htmlFor="confirm" style={labelBase}>Επιβεβαίωση κωδικού</label>
         <div style={{ position: 'relative' }}>
           <input
@@ -175,20 +176,12 @@ export function RegisterForm() {
             type={showCo ? 'text' : 'password'}
             placeholder="Επαναλάβετε τον κωδικό"
             autoComplete="new-password"
-            {...field('confirm')}
-            style={{ ...field('confirm').style, paddingRight: 32 }}
+            style={fieldStyle('confirm', { paddingRight: 32 })}
+            onFocus={() => setFocus('confirm')}
             {...register('confirm', { onBlur: () => setFocus(null) })}
           />
-          <button
-            type="button"
-            onClick={() => setShowCo((v) => !v)}
-            aria-label={showCo ? 'Hide password' : 'Show password'}
-            style={{
-              position: 'absolute', right: 0, bottom: 10,
-              background: 'none', border: 'none', padding: 0,
-              cursor: 'pointer', color: '#C4C0BA', display: 'flex', alignItems: 'center',
-            }}
-          >
+          <button type="button" onClick={() => setShowCo((v) => !v)}
+            aria-label={showCo ? 'Hide password' : 'Show password'} style={toggleStyle}>
             {showCo ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
@@ -213,7 +206,7 @@ export function RegisterForm() {
         disabled={isSubmitting}
         style={{
           height: 52,
-          width: 196,
+          width: 220,
           background: '#111110',
           color: '#F3F1ED',
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
@@ -235,7 +228,7 @@ export function RegisterForm() {
           if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#111110'
         }}
       >
-        {isSubmitting ? 'Δημιουργία…' : 'Create account'}
+        {isSubmitting ? 'Δημιουργία…' : 'Δημιουργία λογαριασμού'}
       </button>
 
       <p style={{

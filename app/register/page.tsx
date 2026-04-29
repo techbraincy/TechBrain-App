@@ -65,7 +65,7 @@ export default function RegisterPage() {
             color: '#2E2E2C',
           }}
         >
-          Restaurant Operations Platform
+          Account initialization
         </div>
         <div
           style={{
