@@ -14,7 +14,6 @@ import { ReferenceTag } from '@/components/admin/ReferenceTag'
 import { StatusPill } from '@/components/admin/StatusPill'
 
 export default async function OverviewPage() {
-  const t0 = Date.now()
   const { business } = await requireAdminSession()
   const businessId = business.id
 
@@ -24,7 +23,6 @@ export default async function OverviewPage() {
     getTodayOrders(businessId, 8),
     getNextThirtyMinReservations(businessId),
   ])
-  console.log(`[ADMIN_PERF] PAGE /admin total=${Date.now() - t0}ms`)
 
   return (
     <div className="fade-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

@@ -22,7 +22,6 @@ const yesterday = () => {
 const REVENUE_STATUSES = ['accepted', 'preparing', 'ready', 'dispatched', 'completed']
 
 export async function getOverviewStats(businessId: string): Promise<OverviewStats> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   const today = { start: startOfDayISO(), end: endOfDayISO() }
   const y = yesterday()
@@ -79,7 +78,6 @@ export async function getOverviewStats(businessId: string): Promise<OverviewStat
   }
 
   const deltaPct = yestRev > 0 ? Math.round(((todayRev - yestRev) / yestRev) * 100) : 0
-  console.log(`[ADMIN_PERF] getOverviewStats bid=${businessId.slice(0, 6)}.. ${Date.now() - t0}ms`)
 
   return {
     todayReservations: todayResvCount,
@@ -94,7 +92,6 @@ export async function getOverviewStats(businessId: string): Promise<OverviewStat
 }
 
 export async function getTodayReservations(businessId: string, limit = 8): Promise<Reservation[]> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   const { data } = await admin
     .from('reservations')
@@ -104,12 +101,10 @@ export async function getTodayReservations(businessId: string, limit = 8): Promi
     .lte('reserved_at', endOfDayISO())
     .order('reserved_at', { ascending: true })
     .limit(limit)
-  console.log(`[ADMIN_PERF] getTodayReservations bid=${businessId.slice(0, 6)}.. ${Date.now() - t0}ms rows=${data?.length ?? 0}`)
   return (data ?? []) as Reservation[]
 }
 
 export async function getTodayOrders(businessId: string, limit = 8): Promise<Order[]> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   const { data } = await admin
     .from('orders')
@@ -119,12 +114,10 @@ export async function getTodayOrders(businessId: string, limit = 8): Promise<Ord
     .lte('created_at', endOfDayISO())
     .order('created_at', { ascending: false })
     .limit(limit)
-  console.log(`[ADMIN_PERF] getTodayOrders bid=${businessId.slice(0, 6)}.. ${Date.now() - t0}ms rows=${data?.length ?? 0}`)
   return (data ?? []) as Order[]
 }
 
 export async function getNextThirtyMinReservations(businessId: string): Promise<Reservation[]> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   const now = new Date()
   const in30 = new Date(now.getTime() + 30 * 60 * 1000)
@@ -136,7 +129,6 @@ export async function getNextThirtyMinReservations(businessId: string): Promise<
     .gte('reserved_at', now.toISOString())
     .lte('reserved_at', in30.toISOString())
     .order('reserved_at', { ascending: true })
-  console.log(`[ADMIN_PERF] getNextThirtyMinReservations bid=${businessId.slice(0, 6)}.. ${Date.now() - t0}ms rows=${data?.length ?? 0}`)
   return (data ?? []) as Reservation[]
 }
 
@@ -146,7 +138,6 @@ export async function listReservations(
   page = 1,
   pageSize = 50,
 ): Promise<{ rows: Reservation[]; total: number }> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   let q = admin
     .from('reservations')
@@ -169,7 +160,6 @@ export async function listReservations(
   q = q.range(from, from + pageSize - 1)
 
   const { data, count } = await q
-  console.log(`[ADMIN_PERF] listReservations bid=${businessId.slice(0, 6)}.. page=${page} ${Date.now() - t0}ms rows=${data?.length ?? 0} total=${count ?? 0}`)
   return { rows: (data ?? []) as Reservation[], total: count ?? 0 }
 }
 
@@ -179,7 +169,6 @@ export async function listOrders(
   page = 1,
   pageSize = 50,
 ): Promise<{ rows: Order[]; total: number }> {
-  const t0 = Date.now()
   const admin = createAdminClient()
   let q = admin
     .from('orders')
@@ -203,7 +192,6 @@ export async function listOrders(
   q = q.range(from, from + pageSize - 1)
 
   const { data, count } = await q
-  console.log(`[ADMIN_PERF] listOrders bid=${businessId.slice(0, 6)}.. page=${page} ${Date.now() - t0}ms rows=${data?.length ?? 0} total=${count ?? 0}`)
   return { rows: (data ?? []) as unknown as Order[], total: count ?? 0 }
 }
 

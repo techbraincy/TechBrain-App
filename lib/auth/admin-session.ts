@@ -40,17 +40,13 @@ export function resolveBusiness(
  * Wrapped in React.cache so multiple calls within the same request share one result.
  */
 export const requireAdminSession: () => Promise<AdminSession> = cache(async () => {
-  const t0 = Date.now()
   const session = await requireSession()
-  const sessionMs = Date.now() - t0
 
   if (session.businesses.length === 0) {
     redirect('/onboarding')
   }
 
   if (session.businesses.length === 1) {
-    const bid = session.businesses[0].id.slice(0, 6)
-    console.log(`[ADMIN_PERF] requireAdminSession requireSession=${sessionMs}ms bid=${bid}.. (single-business fast path)`)
     return { session, business: session.businesses[0] }
   }
 
@@ -63,7 +59,5 @@ export const requireAdminSession: () => Promise<AdminSession> = cache(async () =
     redirect('/admin/select')
   }
 
-  const bid = business.id.slice(0, 6)
-  console.log(`[ADMIN_PERF] requireAdminSession requireSession=${sessionMs}ms bid=${bid}.. (cookie resolved)`)
   return { session, business }
 })
