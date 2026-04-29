@@ -10,18 +10,19 @@ export default function LoginPage() {
       style={{
         minHeight: '100vh',
         background: '#F3F1ED',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        // Pulls layout to ~35% from top — intentional vertical imbalance
-        justifyContent: 'flex-start',
+        // Grid placement: content anchored left, not floating in the middle
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        alignItems: 'start',
         paddingTop: 'clamp(60px, 11vh, 116px)',
         paddingBottom: '80px',
-        paddingLeft: '24px',
-        paddingRight: '24px',
+        // Left offset: ~8vw pushes content into the left-of-center zone
+        // Right padding stays generous so text doesn't run to the edge on small screens
+        paddingLeft: 'clamp(32px, 8vw, 160px)',
+        paddingRight: 'clamp(32px, 4vw, 80px)',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 380 }}>
+      <div style={{ width: '100%', maxWidth: 460 }}>
 
         {/* Wordmark — small, tracked, anchors the space */}
         <div style={{ marginBottom: 52 }}>
