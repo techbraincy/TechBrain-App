@@ -15,17 +15,17 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-// Inputs sit directly on the warm background — no white fill, no card
 const inputBase: React.CSSProperties = {
   width: '100%',
-  height: 46,
-  padding: '0 14px',
+  height: 44,
+  padding: '0 0 10px',
   fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-  fontSize: 14,
+  fontSize: 15,
   color: '#111110',
   background: 'transparent',
-  border: '1px solid #B8B4AE',
-  borderRadius: 4,
+  border: 'none',
+  borderBottom: '1px solid #C4C0BA',
+  borderRadius: 0,
   outline: 'none',
   boxSizing: 'border-box',
   transition: 'border-color 0.12s',
@@ -33,8 +33,7 @@ const inputBase: React.CSSProperties = {
 }
 
 const inputFocused: React.CSSProperties = {
-  borderColor: '#111110',
-  background: 'rgba(255,255,255,0.45)',
+  borderBottomColor: '#111110',
 }
 
 const labelBase: React.CSSProperties = {
@@ -42,10 +41,10 @@ const labelBase: React.CSSProperties = {
   fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
   fontSize: 10,
   fontWeight: 600,
-  letterSpacing: '0.11em',
+  letterSpacing: '0.12em',
   textTransform: 'uppercase' as const,
-  color: '#ABA7A1',
-  marginBottom: 6,
+  color: '#B8B4AE',
+  marginBottom: 10,
 }
 
 export function LoginForm() {
@@ -85,8 +84,7 @@ export function LoginForm() {
       onSubmit={handleSubmit(onSubmit)}
       style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
     >
-      {/* Email */}
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 28 }}>
         <label htmlFor="email" style={labelBase}>Email</label>
         <input
           id="email"
@@ -98,14 +96,13 @@ export function LoginForm() {
           {...register('email', { onBlur: () => setEmailFocus(false) })}
         />
         {errors.email && (
-          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030', letterSpacing: '0.01em' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030' }}>
             {errors.email.message}
           </p>
         )}
       </div>
 
-      {/* Password */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 44 }}>
         <label htmlFor="password" style={labelBase}>Κωδικός</label>
         <div style={{ position: 'relative' }}>
           <input
@@ -113,7 +110,7 @@ export function LoginForm() {
             type={showPw ? 'text' : 'password'}
             placeholder="••••••••"
             autoComplete="current-password"
-            style={{ ...inputBase, paddingRight: 44, ...(pwFocus ? inputFocused : {}) }}
+            style={{ ...inputBase, paddingRight: 32, ...(pwFocus ? inputFocused : {}) }}
             onFocus={() => setPwFocus(true)}
             {...register('password', { onBlur: () => setPwFocus(false) })}
           />
@@ -123,34 +120,31 @@ export function LoginForm() {
             aria-label={showPw ? 'Hide password' : 'Show password'}
             style={{
               position: 'absolute',
-              right: 13,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              right: 0,
+              bottom: 10,
               background: 'none',
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              color: '#B0ACA6',
+              color: '#C4C0BA',
               display: 'flex',
               alignItems: 'center',
-              transition: 'color 0.12s',
             }}
           >
-            {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+            {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
         {errors.password && (
-          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030', letterSpacing: '0.01em' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030' }}>
             {errors.password.message}
           </p>
         )}
       </div>
 
-      {/* Server error — inline, no card */}
       {serverError && (
         <p
           style={{
-            margin: '0 0 20px',
+            margin: '0 0 24px',
             fontSize: 13,
             color: '#B04030',
             fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
@@ -161,7 +155,6 @@ export function LoginForm() {
         </p>
       )}
 
-      {/* Submit — full black, no radius softness */}
       <button
         type="submit"
         disabled={isSubmitting}
@@ -173,14 +166,14 @@ export function LoginForm() {
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
           fontSize: 11,
           fontWeight: 600,
-          letterSpacing: '0.10em',
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
           border: 'none',
-          borderRadius: 4,
+          borderRadius: 3,
           cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          opacity: isSubmitting ? 0.6 : 1,
+          opacity: isSubmitting ? 0.55 : 1,
           transition: 'opacity 0.15s, background 0.15s',
-          marginBottom: 30,
+          marginBottom: 32,
         }}
         onMouseEnter={(e) => {
           if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#2A2A28'
@@ -192,24 +185,22 @@ export function LoginForm() {
         {isSubmitting ? 'Σύνδεση…' : 'Σύνδεση'}
       </button>
 
-      {/* Register — far below the button, very quiet */}
       <p
         style={{
           fontSize: 12,
-          color: '#B0ACA6',
+          color: '#C4C0BA',
           margin: 0,
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-          letterSpacing: '0.01em',
         }}
       >
         Δεν έχεις λογαριασμό;{' '}
         <Link
           href="/register"
           style={{
-            color: '#6A6A65',
+            color: '#8A8680',
             fontWeight: 500,
             textDecoration: 'none',
-            borderBottom: '1px solid #C8C5BF',
+            borderBottom: '1px solid #C4C0BA',
             paddingBottom: 1,
           }}
         >

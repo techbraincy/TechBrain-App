@@ -10,22 +10,18 @@ export default function LoginPage() {
       style={{
         minHeight: '100vh',
         background: '#F3F1ED',
-        // Grid placement: content anchored left, not floating in the middle
         display: 'grid',
         gridTemplateColumns: '1fr',
         alignItems: 'start',
         paddingTop: 'clamp(60px, 11vh, 116px)',
         paddingBottom: '80px',
-        // Left offset: ~8vw pushes content into the left-of-center zone
-        // Right padding stays generous so text doesn't run to the edge on small screens
-        paddingLeft: 'clamp(32px, 8vw, 160px)',
-        paddingRight: 'clamp(32px, 4vw, 80px)',
+        paddingLeft: 'clamp(32px, 10vw, 192px)',
+        paddingRight: 'clamp(32px, 3vw, 64px)',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 460 }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
 
-        {/* Wordmark — small, tracked, anchors the space */}
-        <div style={{ marginBottom: 52 }}>
+        <div style={{ marginBottom: 64 }}>
           <span
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
@@ -33,22 +29,21 @@ export default function LoginPage() {
               fontWeight: 600,
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: '#9A9590',
+              color: '#B0ACA6',
             }}
           >
             TechBrain
           </span>
         </div>
 
-        {/* Headline — dominant, large, tight */}
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 16 }}>
           <h1
             style={{
               fontFamily: 'var(--font-display, "Fraunces", serif)',
-              fontSize: 'clamp(38px, 6.5vw, 47px)',
-              fontWeight: 600,
-              lineHeight: 1.05,
-              letterSpacing: '-0.025em',
+              fontSize: 'clamp(38px, 6.5vw, 48px)',
+              fontWeight: 700,
+              lineHeight: 1.03,
+              letterSpacing: '-0.03em',
               color: '#0D0D0C',
               margin: 0,
             }}
@@ -58,23 +53,21 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        {/* Subtext — quiet, subordinate to the headline */}
-        <div style={{ marginBottom: 56 }}>
+        <div style={{ marginBottom: 52 }}>
           <p
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
               fontSize: 13,
-              color: '#A8A49E',
+              color: '#B0ACA6',
               margin: 0,
-              lineHeight: 1.65,
-              letterSpacing: '0.01em',
+              lineHeight: 1.6,
+              letterSpacing: '0.005em',
             }}
           >
             Κρατήσεις, παραγγελίες και στατιστικά — σε ένα μέρος.
           </p>
         </div>
 
-        {/* Form — sits directly on the page, no container */}
         <Suspense>
           <LoginForm />
         </Suspense>
