@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { ReferenceTag } from './ReferenceTag'
 import { StatusPill } from './StatusPill'
 import { SourceIcon } from './SourceIcon'
 import { ReservationDetailDrawer } from './ReservationDetailDrawer'
 import { EmptyTable } from './EmptyTable'
+import { ArchiveConfirmDialog } from './ArchiveConfirmDialog'
+import { archiveReservations } from '@/lib/admin/actions'
 import {
   formatTimeShort,
   formatPhone,
@@ -23,6 +25,8 @@ interface Props {
 export function ReservationsTable({ rows, variant = 'full', selectable = true }: Props) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   if (rows.length === 0) {
     return (
@@ -42,6 +46,14 @@ export function ReservationsTable({ rows, variant = 'full', selectable = true }:
     const next = new Set(selected)
     next.has(id) ? next.delete(id) : next.add(id)
     setSelected(next)
+  }
+
+  function handleArchiveConfirm() {
+    startTransition(async () => {
+      await archiveReservations(Array.from(selected))
+      setSelected(new Set())
+      setConfirmOpen(false)
+    })
   }
 
   const open = rows.find((r) => r.id === openId) ?? null
@@ -146,14 +158,34 @@ export function ReservationsTable({ rows, variant = 'full', selectable = true }:
           <div className="bulk-bar" role="region" aria-live="polite">
             <span>{selected.size} selected</span>
             <span style={{ opacity: 0.4 }}>·</span>
-            <button className="btn" data-variant="ghost" style={{ color: 'var(--paper)' }} onClick={() => setSelected(new Set())}>
+            <button
+              className="btn"
+              data-variant="ghost"
+              style={{ color: 'var(--paper)' }}
+              onClick={() => setSelected(new Set())}
+            >
               Clear
             </button>
-            <span style={{ fontSize: 11, opacity: 0.6 }}>
-              Bulk confirm/cancel coming soon
-            </span>
+            <button
+              className="btn"
+              data-variant="danger"
+              onClick={() => setConfirmOpen(true)}
+              disabled={isPending}
+            >
+              Archive selected
+            </button>
           </div>
         </div>
+      )}
+
+      {confirmOpen && (
+        <ArchiveConfirmDialog
+          count={selected.size}
+          entity="reservation"
+          onConfirm={handleArchiveConfirm}
+          onCancel={() => setConfirmOpen(false)}
+          loading={isPending}
+        />
       )}
 
       <ReservationDetailDrawer

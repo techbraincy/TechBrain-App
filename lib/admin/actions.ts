@@ -150,6 +150,40 @@ export async function setOrderNote(id: string, note: string) {
   revalidatePath('/admin/orders')
 }
 
+// ── Archive actions ──────────────────────────────────────────────
+
+export async function archiveReservations(ids: string[]) {
+  if (ids.length === 0) return
+  const { userId, businessId } = await authorizeFromSession()
+  const admin = createAdminClient()
+  const now = new Date().toISOString()
+  const { error } = await admin
+    .from('reservations')
+    .update({ archived_at: now, archived_by: userId, updated_at: now })
+    .in('id', ids)
+    .eq('business_id', businessId)
+    .is('archived_at', null)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin')
+  revalidatePath('/admin/reservations')
+}
+
+export async function archiveOrders(ids: string[]) {
+  if (ids.length === 0) return
+  const { userId, businessId } = await authorizeFromSession()
+  const admin = createAdminClient()
+  const now = new Date().toISOString()
+  const { error } = await admin
+    .from('orders')
+    .update({ archived_at: now, archived_by: userId, updated_at: now })
+    .in('id', ids)
+    .eq('business_id', businessId)
+    .is('archived_at', null)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin')
+  revalidatePath('/admin/orders')
+}
+
 // ── Branding actions ─────────────────────────────────────────────
 
 export async function saveBranding(primaryColor: string, logoUrl: string | null) {

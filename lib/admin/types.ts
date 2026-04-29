@@ -28,6 +28,8 @@ export interface Reservation {
   table_number: string | null
   rejection_reason: string | null
   confirmed_at: string | null
+  archived_at: string | null
+  archived_by: string | null
   created_at: string
   updated_at: string
 }
@@ -80,6 +82,8 @@ export interface Order {
   notes: string | null
   rejection_reason: string | null
   accepted_at: string | null
+  archived_at: string | null
+  archived_by: string | null
   created_at: string
   updated_at: string
   items?: OrderItem[]

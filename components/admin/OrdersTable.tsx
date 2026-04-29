@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { ReferenceTag } from './ReferenceTag'
 import { StatusPill } from './StatusPill'
 import { SourceIcon } from './SourceIcon'
 import { OrderDetailDrawer } from './OrderDetailDrawer'
 import { EmptyTable } from './EmptyTable'
+import { ArchiveConfirmDialog } from './ArchiveConfirmDialog'
+import { archiveOrders } from '@/lib/admin/actions'
 import {
   formatTimeShort,
   formatPhone,
@@ -25,6 +27,8 @@ interface Props {
 export function OrdersTable({ rows, variant = 'full', selectable = true }: Props) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   if (rows.length === 0) {
     return (
@@ -43,6 +47,14 @@ export function OrdersTable({ rows, variant = 'full', selectable = true }: Props
     const next = new Set(selected)
     next.has(id) ? next.delete(id) : next.add(id)
     setSelected(next)
+  }
+
+  function handleArchiveConfirm() {
+    startTransition(async () => {
+      await archiveOrders(Array.from(selected))
+      setSelected(new Set())
+      setConfirmOpen(false)
+    })
   }
 
   const open = rows.find((r) => r.id === openId) ?? null
@@ -127,14 +139,34 @@ export function OrdersTable({ rows, variant = 'full', selectable = true }: Props
           <div className="bulk-bar" role="region" aria-live="polite">
             <span>{selected.size} selected</span>
             <span style={{ opacity: 0.4 }}>·</span>
-            <button className="btn" data-variant="ghost" style={{ color: 'var(--paper)' }} onClick={() => setSelected(new Set())}>
+            <button
+              className="btn"
+              data-variant="ghost"
+              style={{ color: 'var(--paper)' }}
+              onClick={() => setSelected(new Set())}
+            >
               Clear
             </button>
-            <span style={{ fontSize: 11, opacity: 0.6 }}>
-              Bulk accept/reject coming soon
-            </span>
+            <button
+              className="btn"
+              data-variant="danger"
+              onClick={() => setConfirmOpen(true)}
+              disabled={isPending}
+            >
+              Archive selected
+            </button>
           </div>
         </div>
+      )}
+
+      {confirmOpen && (
+        <ArchiveConfirmDialog
+          count={selected.size}
+          entity="order"
+          onConfirm={handleArchiveConfirm}
+          onCancel={() => setConfirmOpen(false)}
+          loading={isPending}
+        />
       )}
 
       <OrderDetailDrawer order={open} onClose={() => setOpenId(null)} />

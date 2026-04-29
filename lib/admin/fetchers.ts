@@ -97,6 +97,7 @@ export async function getTodayReservations(businessId: string, limit = 8): Promi
     .from('reservations')
     .select('*')
     .eq('business_id', businessId)
+    .is('archived_at', null)
     .gte('reserved_at', startOfDayISO())
     .lte('reserved_at', endOfDayISO())
     .order('reserved_at', { ascending: true })
@@ -110,6 +111,7 @@ export async function getTodayOrders(businessId: string, limit = 8): Promise<Ord
     .from('orders')
     .select('*')
     .eq('business_id', businessId)
+    .is('archived_at', null)
     .gte('created_at', startOfDayISO())
     .lte('created_at', endOfDayISO())
     .order('created_at', { ascending: false })
@@ -143,6 +145,7 @@ export async function listReservations(
     .from('reservations')
     .select('*', { count: 'exact' })
     .eq('business_id', businessId)
+    .is('archived_at', null)
     .order('reserved_at', { ascending: false })
 
   if (f.from) q = q.gte('reserved_at', new Date(f.from).toISOString())
@@ -174,6 +177,7 @@ export async function listOrders(
     .from('orders')
     .select('*, items:order_items(*)', { count: 'exact' })
     .eq('business_id', businessId)
+    .is('archived_at', null)
     .order('created_at', { ascending: false })
 
   if (f.from) q = q.gte('created_at', new Date(f.from).toISOString())
