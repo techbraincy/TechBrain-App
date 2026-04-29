@@ -1,76 +1,155 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { RegisterForm } from '@/components/auth/register-form'
-import { PhoneCall, Check } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Εγγραφή' }
 
-const FEATURES = [
-  'Δωρεάν εγκατάσταση — χωρίς κάρτα',
-  'Bilingual agent: Ελληνικά & Αγγλικά',
-  'Κρατήσεις, παραγγελίες, FAQs',
-  'Έτοιμος agent σε λίγα λεπτά',
-]
-
 export default function RegisterPage() {
   return (
-    <div className="flex min-h-screen">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[44%] flex-col justify-between bg-[#1e1b4b] p-12 text-white">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/20 backdrop-blur">
-            <PhoneCall className="size-4 text-indigo-300" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">VoiceAgent</span>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#F3F1ED',
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        alignItems: 'start',
+        paddingTop: 'clamp(60px, 11vh, 116px)',
+        paddingBottom: '80px',
+        paddingLeft: 'clamp(32px, 10vw, 192px)',
+        paddingRight: 'clamp(32px, 31vw, 460px)',
+        position: 'relative',
+      }}
+    >
+      <style>{`
+        @media (max-width: 768px) { .login-right-panel { display: none !important; } }
+      `}</style>
+      <div
+        className="login-right-panel"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: '27vw',
+          height: '100vh',
+          background: 'linear-gradient(to left, #0D0D0C 0%, #111110 60%, #141413 100%)',
+          borderLeft: '1px solid #2A2A28',
+          pointerEvents: 'none',
+        }}
+      >
+        {['33.33%', '66.66%'].map((top) => (
+          <div
+            key={top}
+            style={{
+              position: 'absolute',
+              top,
+              left: 0,
+              right: 0,
+              height: '1px',
+              background: '#222220',
+            }}
+          />
+        ))}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) rotate(90deg)',
+            whiteSpace: 'nowrap',
+            fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: '#2E2E2C',
+          }}
+        >
+          Restaurant Operations Platform
         </div>
-
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <h1 className="text-4xl font-bold leading-tight tracking-tight">
-              Ξεκίνα σήμερα.<br />
-              <span className="text-indigo-300">Δεν χρειάζεσαι</span><br />
-              κωδικό.
-            </h1>
-            <p className="text-indigo-200/80 text-base leading-relaxed max-w-xs">
-              Ρύθμισε την επιχείρησή σου και τον AI agent σου στα πρώτα 5 λεπτά.
-            </p>
-          </div>
-
-          <ul className="space-y-2.5">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2.5 text-sm text-indigo-100/90">
-                <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/30">
-                  <Check className="size-3 text-indigo-300" />
-                </div>
-                {f}
-              </li>
-            ))}
-          </ul>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 32,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+          }}
+        >
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#3A3A36' }} />
+          <span
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: '#2E2E2C',
+            }}
+          >
+            System online
+          </span>
         </div>
-
-        <p className="text-xs text-indigo-300/50">
-          © {new Date().getFullYear()} VoiceAgent. Όλα τα δικαιώματα κατοχυρωμένα.
-        </p>
       </div>
 
-      {/* Right panel */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        <div className="mb-8 flex items-center gap-2 lg:hidden">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-            <PhoneCall className="size-4 text-white" />
-          </div>
-          <span className="text-lg font-semibold">VoiceAgent</span>
+      <div style={{ width: '100%', maxWidth: 440 }}>
+
+        <div style={{ marginBottom: 24 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: '#9A9590',
+            }}
+          >
+            TechBrain
+          </span>
         </div>
 
-        <div className="w-full max-w-sm space-y-6">
-          <div className="space-y-1.5">
-            <h2 className="text-2xl font-semibold tracking-tight">Δημιούργησε λογαριασμό</h2>
-            <p className="text-sm text-muted-foreground">
-              Ένα βήμα πριν τον AI agent σου
-            </p>
-          </div>
+        <div style={{ height: 1, background: '#D8D5CE', marginBottom: 32, width: '100%' }} />
 
+        <div style={{ marginBottom: 16 }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display, "Fraunces", serif)',
+              fontSize: 'clamp(38px, 6.5vw, 48px)',
+              fontWeight: 700,
+              lineHeight: 1.03,
+              letterSpacing: '-0.03em',
+              color: '#0D0D0C',
+              margin: 0,
+            }}
+          >
+            Your restaurant.<br />
+            One control panel.
+          </h1>
+        </div>
+
+        <div style={{ marginBottom: 52 }}>
+          <p
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 13,
+              color: '#B0ACA6',
+              margin: 0,
+              lineHeight: 1.6,
+              letterSpacing: '0.005em',
+            }}
+          >
+            Δημιούργησε λογαριασμό για να ξεκινήσεις.
+          </p>
+        </div>
+
+        <Suspense>
           <RegisterForm />
-        </div>
+        </Suspense>
+
       </div>
     </div>
   )
