@@ -38,17 +38,74 @@ export default function LoginPage() {
           pointerEvents: 'none',
         }}
       >
-        {/* Single structural rule at ~38% height — aligns with headline zone */}
+        {/* Horizontal rules — divide panel into thirds */}
+        {['33.33%', '66.66%'].map((top) => (
+          <div
+            key={top}
+            style={{
+              position: 'absolute',
+              top,
+              left: 0,
+              right: 0,
+              height: '1px',
+              background: '#222220',
+            }}
+          />
+        ))}
+
+        {/* Rotated vertical text — centered, architectural */}
         <div
           style={{
             position: 'absolute',
-            top: '38%',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) rotate(90deg)',
+            whiteSpace: 'nowrap',
+            fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: '#2E2E2C',
+          }}
+        >
+          Restaurant Operations Platform
+        </div>
+
+        {/* Status line — bottom of panel */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 32,
             left: 0,
             right: 0,
-            height: '1px',
-            background: '#2A2A28',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
           }}
-        />
+        >
+          <div
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: '#3A3A36',
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: '#2E2E2C',
+            }}
+          >
+            System online
+          </span>
+        </div>
       </div>
 
       <div style={{ width: '100%', maxWidth: 440 }}>
