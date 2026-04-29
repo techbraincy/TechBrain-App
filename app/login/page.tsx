@@ -16,8 +16,7 @@ export default function LoginPage() {
         paddingTop: 'clamp(60px, 11vh, 116px)',
         paddingBottom: '80px',
         paddingLeft: 'clamp(32px, 10vw, 192px)',
-        // Right padding keeps form clear of the dark panel
-        paddingRight: 'clamp(32px, 38vw, 520px)',
+        paddingRight: 'clamp(32px, 31vw, 460px)',
         position: 'relative',
       }}
     >
@@ -32,15 +31,30 @@ export default function LoginPage() {
           position: 'fixed',
           top: 0,
           right: 0,
-          width: '34vw',
+          width: '27vw',
           height: '100vh',
-          background: '#111110',
+          background: 'linear-gradient(to left, #0D0D0C 0%, #111110 60%, #141413 100%)',
+          borderLeft: '1px solid #2A2A28',
           pointerEvents: 'none',
         }}
-      />
+      >
+        {/* Single structural rule at ~38% height — aligns with headline zone */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '38%',
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: '#2A2A28',
+          }}
+        />
+      </div>
+
       <div style={{ width: '100%', maxWidth: 440 }}>
 
-        <div style={{ marginBottom: 64 }}>
+        {/* Wordmark */}
+        <div style={{ marginBottom: 24 }}>
           <span
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
@@ -55,6 +69,17 @@ export default function LoginPage() {
           </span>
         </div>
 
+        {/* Separator — wordmark / headline */}
+        <div
+          style={{
+            height: '1px',
+            background: '#D8D5CE',
+            marginBottom: 32,
+            width: '100%',
+          }}
+        />
+
+        {/* Headline */}
         <div style={{ marginBottom: 16 }}>
           <h1
             style={{
@@ -72,6 +97,7 @@ export default function LoginPage() {
           </h1>
         </div>
 
+        {/* Subtext */}
         <div style={{ marginBottom: 52 }}>
           <p
             style={{
