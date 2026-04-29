@@ -49,15 +49,23 @@ export async function getUser(): Promise<SessionUser | null> {
  * critical because layout + page both pull this through requireAdminSession().
  */
 export const getSession: () => Promise<Session | null> = cache(async () => {
+  const t0 = Date.now()
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) return null
+  const authStart = Date.now()
+  const { data: { user } } = await supabase.auth.getUser()
+  const authMs = Date.now() - authStart
+
+  if (!user) {
+    console.log(`[ADMIN_PERF] getSession auth.getUser=${authMs}ms → unauthenticated`)
+    return null
+  }
 
   // Use admin client for membership query to bypass self-referencing RLS on business_members.
   // User identity is already verified above via supabase.auth.getUser().
   const admin = createAdminClient()
 
+  const dbStart = Date.now()
   const [profileResult, membershipsResult] = await Promise.all([
     supabase
       .from('profiles')
@@ -75,6 +83,8 @@ export const getSession: () => Promise<Session | null> = cache(async () => {
       `)
       .eq('user_id', user.id),
   ])
+  const dbMs = Date.now() - dbStart
+  console.log(`[ADMIN_PERF] getSession auth.getUser=${authMs}ms db(profile+memberships)=${dbMs}ms total=${Date.now() - t0}ms`)
 
   const businesses: BusinessWithMembership[] = (membershipsResult.data ?? [])
     .filter((m) => m.businesses !== null)

@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
 ]
 
 export async function middleware(request: NextRequest) {
+  const mwStart = Date.now()
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -43,9 +44,16 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refresh session — MUST be called before checking user
+  const authStart = Date.now()
   const { data: { user } } = await supabase.auth.getUser()
+  const authMs = Date.now() - authStart
 
   const { pathname } = request.nextUrl
+
+  // Only log admin routes to keep noise low
+  if (pathname.startsWith('/admin')) {
+    console.log(`[ADMIN_PERF] middleware path=${pathname} auth.getUser=${authMs}ms total=${Date.now() - mwStart}ms`)
+  }
 
   const isPublicRoute =
     PUBLIC_ROUTES.includes(pathname) ||

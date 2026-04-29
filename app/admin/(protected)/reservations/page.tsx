@@ -13,6 +13,7 @@ interface Props {
 }
 
 export default async function ReservationsPage({ searchParams }: Props) {
+  const t0 = Date.now()
   const { business } = await requireAdminSession()
 
   const filters: ReservationFilterValues = {
@@ -24,6 +25,7 @@ export default async function ReservationsPage({ searchParams }: Props) {
   }
 
   const { rows, total } = await listReservations(business.id, filters, 1, 50)
+  console.log(`[ADMIN_PERF] PAGE /admin/reservations total=${Date.now() - t0}ms`)
 
   return (
     <div className="fade-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
