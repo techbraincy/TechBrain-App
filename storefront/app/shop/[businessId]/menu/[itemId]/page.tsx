@@ -7,6 +7,7 @@ export default async function ItemDetailPage({
 }: {
   params: { businessId: string; itemId: string }
 }) {
+  const { businessId, itemId } = params
   const admin = createAdminClient()
 
   const [bizRes, cfgRes, itemRes] = await Promise.all([

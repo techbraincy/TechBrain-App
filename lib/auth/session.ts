@@ -1,12 +1,13 @@
 import { createClient, createAdminClient } from '@/lib/db/supabase-server'
 import { redirect } from 'next/navigation'
-import type { BusinessWithMembership, BusinessRole } from '@/types/db'
+import type { BusinessWithMembership, BusinessRole, SystemRole } from '@/types/db'
 
 export interface SessionUser {
   id: string
   email: string
   full_name: string | null
   avatar_url: string | null
+  system_role: SystemRole
 }
 
 export interface Session {
@@ -26,7 +27,7 @@ export async function getUser(): Promise<SessionUser | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, avatar_url')
+    .select('full_name, avatar_url, system_role')
     .eq('id', user.id)
     .single()
 
@@ -35,6 +36,7 @@ export async function getUser(): Promise<SessionUser | null> {
     email: user.email ?? '',
     full_name: profile?.full_name ?? null,
     avatar_url: profile?.avatar_url ?? null,
+    system_role: (profile?.system_role ?? 'user') as SystemRole,
   }
 }
 
@@ -55,7 +57,7 @@ export async function getSession(): Promise<Session | null> {
   const [profileResult, membershipsResult] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, avatar_url')
+      .select('full_name, avatar_url, system_role')
       .eq('id', user.id)
       .single(),
     admin
@@ -91,6 +93,7 @@ export async function getSession(): Promise<Session | null> {
       email: user.email ?? '',
       full_name: profileResult.data?.full_name ?? null,
       avatar_url: profileResult.data?.avatar_url ?? null,
+      system_role: (profileResult.data?.system_role ?? 'user') as SystemRole,
     },
     businesses,
   }
@@ -126,4 +129,15 @@ export async function requireBusinessAccess(
   }
 
   return { session, business }
+}
+
+/**
+ * Requires the current user to have system_role = 'super_admin'.
+ * Redirects to /dashboard for any authenticated non-super-admin.
+ * Use at the top of platform-level Server Components (not yet wired to any route).
+ */
+export async function requireSuperAdmin(): Promise<Session> {
+  const session = await requireSession()
+  if (session.user.system_role !== 'super_admin') redirect('/dashboard')
+  return session
 }

@@ -50,6 +50,7 @@ export default async function OrderDetailPage({
 }: {
   params: { businessId: string; orderId: string }
 }) {
+  const { businessId, orderId } = params
   const customer = await requireShopCustomer(businessId)
 
   const admin    = createAdminClient()

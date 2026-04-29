@@ -6,6 +6,7 @@ export type BusinessType =
   | 'retail' | 'services' | 'beauty' | 'healthcare' | 'other'
 
 export type BusinessRole = 'owner' | 'manager' | 'staff'
+export type SystemRole = 'user' | 'super_admin'
 
 export type SetupStatus = 'pending' | 'in_progress' | 'complete' | 'failed'
 
@@ -35,6 +36,7 @@ export interface Profile {
   email: string
   full_name: string | null
   avatar_url: string | null
+  system_role: SystemRole
   created_at: string
   updated_at: string
 }

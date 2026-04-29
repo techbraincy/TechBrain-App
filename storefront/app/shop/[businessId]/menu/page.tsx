@@ -10,6 +10,7 @@ export default async function MenuPage({
   params:       { businessId: string }
   searchParams: { cat?: string; q?: string }
 }) {
+  const { businessId } = params
   const admin = createAdminClient()
 
   const [bizRes, cfgRes, catsRes, itemsRes, deliveryRes, customer] = await Promise.all([
