@@ -16,9 +16,28 @@ export default function LoginPage() {
         paddingTop: 'clamp(60px, 11vh, 116px)',
         paddingBottom: '80px',
         paddingLeft: 'clamp(32px, 10vw, 192px)',
-        paddingRight: 'clamp(32px, 3vw, 64px)',
+        // Right padding keeps form clear of the dark panel
+        paddingRight: 'clamp(32px, 38vw, 520px)',
+        position: 'relative',
       }}
     >
+      {/* Right-side structural panel — hidden on small screens */}
+      <style>{`
+        @media (max-width: 768px) { .login-right-panel { display: none !important; } }
+      `}</style>
+      <div
+        className="login-right-panel"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: '34vw',
+          height: '100vh',
+          background: '#111110',
+          pointerEvents: 'none',
+        }}
+      />
       <div style={{ width: '100%', maxWidth: 440 }}>
 
         <div style={{ marginBottom: 64 }}>
@@ -29,7 +48,7 @@ export default function LoginPage() {
               fontWeight: 600,
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: '#B0ACA6',
+              color: '#9A9590',
             }}
           >
             TechBrain

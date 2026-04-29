@@ -24,7 +24,7 @@ const inputBase: React.CSSProperties = {
   color: '#111110',
   background: 'transparent',
   border: 'none',
-  borderBottom: '1px solid #C4C0BA',
+  borderBottom: '1px solid #A8A49E',
   borderRadius: 0,
   outline: 'none',
   boxSizing: 'border-box',
@@ -102,7 +102,7 @@ export function LoginForm() {
         )}
       </div>
 
-      <div style={{ marginBottom: 44 }}>
+      <div style={{ marginBottom: 50 }}>
         <label htmlFor="password" style={labelBase}>Κωδικός</label>
         <div style={{ position: 'relative' }}>
           <input
