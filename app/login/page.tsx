@@ -1,79 +1,95 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { LoginForm } from '@/components/auth/login-form'
-import { PhoneCall } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Σύνδεση' }
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen">
-      {/* Left panel — brand */}
-      <div className="hidden lg:flex lg:w-[44%] flex-col justify-between bg-[#1e1b4b] p-12 text-white">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/20 backdrop-blur">
-            <PhoneCall className="size-4 text-indigo-300" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">VoiceAgent</span>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#F9F7F4',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 24px',
+        position: 'relative',
+      }}
+    >
+      {/* Top accent line */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: '#1C1C1A',
+        }}
+      />
+
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        {/* Wordmark */}
+        <div style={{ marginBottom: 40 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#8A8A85',
+            }}
+          >
+            TechBrain
+          </span>
         </div>
 
-        <div className="space-y-5">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight">
-            Ο AI βοηθός σου<br />
-            απαντά στο τηλέφωνο.<br />
-            <span className="text-indigo-300">Πάντα.</span>
+        {/* Headline */}
+        <div style={{ marginBottom: 36 }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display, "Fraunces", serif)',
+              fontSize: 'clamp(26px, 5vw, 32px)',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              color: '#111110',
+              margin: '0 0 10px',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Your restaurant.<br />
+            One control panel.
           </h1>
-          <p className="text-indigo-200/80 text-base leading-relaxed max-w-xs">
-            Δημιούργησε έναν AI phone agent για την επιχείρησή σου σε λίγα λεπτά.
-            Κρατήσεις, παραγγελίες, FAQs — όλα αυτοματοποιημένα.
+          <p
+            style={{
+              fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+              fontSize: 14,
+              color: '#8A8A85',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            Συνδέσου για να δεις κρατήσεις, παραγγελίες και στατιστικά.
           </p>
         </div>
 
-        <div className="space-y-3">
-          <Testimonial
-            quote="Χάσαμε πολύ λιγότερες κλήσεις από τότε που ενεργοποιήσαμε τον agent."
-            author="Σοφία Κ."
-            role="Ιδιοκτήτρια εστιατορίου"
-          />
-        </div>
-      </div>
-
-      {/* Right panel — form */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        {/* Mobile logo */}
-        <div className="mb-8 flex items-center gap-2 lg:hidden">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-            <PhoneCall className="size-4 text-white" />
-          </div>
-          <span className="text-lg font-semibold">VoiceAgent</span>
-        </div>
-
-        <div className="w-full max-w-sm space-y-6">
-          <div className="space-y-1.5">
-            <h2 className="text-2xl font-semibold tracking-tight">Καλώς ήρθες πίσω</h2>
-            <p className="text-sm text-muted-foreground">
-              Σύνδεσε τον λογαριασμό σου για να συνεχίσεις
-            </p>
-          </div>
-
+        {/* Form card */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #D8D5D0',
+            borderRadius: 12,
+            padding: '28px 28px 24px',
+          }}
+        >
           <Suspense>
             <LoginForm />
           </Suspense>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function Testimonial({
-  quote, author, role,
-}: { quote: string; author: string; role: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-      <p className="text-sm text-indigo-100/90 leading-relaxed">"{quote}"</p>
-      <div>
-        <p className="text-sm font-medium text-white">{author}</p>
-        <p className="text-xs text-indigo-300/70">{role}</p>
       </div>
     </div>
   )
