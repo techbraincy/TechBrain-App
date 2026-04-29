@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { requireAdminSession } from '@/lib/auth/admin-session'
 import { StatCard } from '@/components/admin/StatCard'
 import { ReservationsTable } from '@/components/admin/ReservationsTable'
@@ -104,9 +105,9 @@ export default async function OverviewPage() {
             }}
           >
             <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Today's reservations</h2>
-            <a href="/admin/reservations" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+            <Link href="/admin/reservations" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
               View all →
-            </a>
+            </Link>
           </div>
           <div style={{ padding: 12 }}>
             <ReservationsTable rows={todayReservations} variant="today" selectable={false} />
@@ -124,9 +125,9 @@ export default async function OverviewPage() {
             }}
           >
             <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Today's orders</h2>
-            <a href="/admin/orders" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+            <Link href="/admin/orders" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
               View all →
-            </a>
+            </Link>
           </div>
           <div style={{ padding: 12 }}>
             <OrdersTable rows={todayOrders} variant="today" selectable={false} />

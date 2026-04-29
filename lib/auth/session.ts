@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient, createAdminClient } from '@/lib/db/supabase-server'
 import { redirect } from 'next/navigation'
 import type { BusinessWithMembership, BusinessRole, SystemRole } from '@/types/db'
@@ -43,8 +44,11 @@ export async function getUser(): Promise<SessionUser | null> {
 /**
  * Returns the current user and their business memberships.
  * Returns null if not authenticated.
+ *
+ * Wrapped in React.cache so multiple calls within the same request share one result —
+ * critical because layout + page both pull this through requireAdminSession().
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession: () => Promise<Session | null> = cache(async () => {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -97,7 +101,7 @@ export async function getSession(): Promise<Session | null> {
     },
     businesses,
   }
-}
+})
 
 /**
  * Requires an authenticated session — redirects to /login if none exists.

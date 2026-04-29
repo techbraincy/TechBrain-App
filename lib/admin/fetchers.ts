@@ -19,46 +19,29 @@ const yesterday = () => {
   return y
 }
 
+const REVENUE_STATUSES = ['accepted', 'preparing', 'ready', 'dispatched', 'completed']
+
 export async function getOverviewStats(businessId: string): Promise<OverviewStats> {
   const admin = createAdminClient()
   const today = { start: startOfDayISO(), end: endOfDayISO() }
   const y = yesterday()
   const yest = { start: startOfDayISO(y), end: endOfDayISO(y) }
 
-  const [
-    todayResv,
-    yestResv,
-    todayOrd,
-    yestOrd,
-    pendingResv,
-    awaitingOrd,
-    todayRevenue,
-    yestRevenue,
-  ] = await Promise.all([
+  // Two-day window for both tables — fetch minimal rows once, derive every metric in JS.
+  // Replaces 8 round trips (incl. expensive `count: 'exact'`) with 4 — all in parallel.
+  const [reservationsRows, ordersRows, pendingResvRes, awaitingOrdRes] = await Promise.all([
     admin
       .from('reservations')
-      .select('id', { count: 'exact', head: true })
-      .eq('business_id', businessId)
-      .gte('reserved_at', today.start)
-      .lte('reserved_at', today.end),
-    admin
-      .from('reservations')
-      .select('id', { count: 'exact', head: true })
+      .select('reserved_at')
       .eq('business_id', businessId)
       .gte('reserved_at', yest.start)
-      .lte('reserved_at', yest.end),
+      .lte('reserved_at', today.end),
     admin
       .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('business_id', businessId)
-      .gte('created_at', today.start)
-      .lte('created_at', today.end),
-    admin
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
+      .select('created_at, total, status')
       .eq('business_id', businessId)
       .gte('created_at', yest.start)
-      .lte('created_at', yest.end),
+      .lte('created_at', today.end),
     admin
       .from('reservations')
       .select('id', { count: 'exact', head: true })
@@ -69,36 +52,40 @@ export async function getOverviewStats(businessId: string): Promise<OverviewStat
       .select('id', { count: 'exact', head: true })
       .eq('business_id', businessId)
       .eq('status', 'awaiting_approval'),
-    admin
-      .from('orders')
-      .select('total')
-      .eq('business_id', businessId)
-      .gte('created_at', today.start)
-      .lte('created_at', today.end)
-      .in('status', ['accepted', 'preparing', 'ready', 'dispatched', 'completed']),
-    admin
-      .from('orders')
-      .select('total')
-      .eq('business_id', businessId)
-      .gte('created_at', yest.start)
-      .lte('created_at', yest.end)
-      .in('status', ['accepted', 'preparing', 'ready', 'dispatched', 'completed']),
   ])
 
-  const sum = (rows: { total: number }[] | null) =>
-    (rows ?? []).reduce((a, r) => a + Number(r.total ?? 0), 0)
+  let todayResvCount = 0
+  let yestResvCount = 0
+  for (const r of (reservationsRows.data ?? []) as { reserved_at: string }[]) {
+    if (r.reserved_at >= today.start && r.reserved_at <= today.end) todayResvCount++
+    else if (r.reserved_at >= yest.start && r.reserved_at <= yest.end) yestResvCount++
+  }
 
-  const todayRev = sum(todayRevenue.data as any)
-  const yestRev = sum(yestRevenue.data as any)
+  let todayOrdCount = 0
+  let yestOrdCount = 0
+  let todayRev = 0
+  let yestRev = 0
+  for (const o of (ordersRows.data ?? []) as { created_at: string; total: number | null; status: string }[]) {
+    const inToday = o.created_at >= today.start && o.created_at <= today.end
+    const inYest = !inToday && o.created_at >= yest.start && o.created_at <= yest.end
+    if (inToday) todayOrdCount++
+    else if (inYest) yestOrdCount++
+    if (REVENUE_STATUSES.includes(o.status)) {
+      const v = Number(o.total ?? 0)
+      if (inToday) todayRev += v
+      else if (inYest) yestRev += v
+    }
+  }
+
   const deltaPct = yestRev > 0 ? Math.round(((todayRev - yestRev) / yestRev) * 100) : 0
 
   return {
-    todayReservations: todayResv.count ?? 0,
-    todayReservationsDelta: (todayResv.count ?? 0) - (yestResv.count ?? 0),
-    todayOrders: todayOrd.count ?? 0,
-    todayOrdersDelta: (todayOrd.count ?? 0) - (yestOrd.count ?? 0),
-    pendingReservations: pendingResv.count ?? 0,
-    awaitingOrderApprovals: awaitingOrd.count ?? 0,
+    todayReservations: todayResvCount,
+    todayReservationsDelta: todayResvCount - yestResvCount,
+    todayOrders: todayOrdCount,
+    todayOrdersDelta: todayOrdCount - yestOrdCount,
+    pendingReservations: pendingResvRes.count ?? 0,
+    awaitingOrderApprovals: awaitingOrdRes.count ?? 0,
     todayRevenue: todayRev,
     todayRevenueDeltaPct: deltaPct,
   }
