@@ -9,9 +9,7 @@ import {
   getTodayOrders,
   getNextThirtyMinReservations,
 } from '@/lib/admin/fetchers'
-import { eur, formatTimeShort, formatPhone } from '@/lib/admin/formatters'
-import { ReferenceTag } from '@/components/admin/ReferenceTag'
-import { StatusPill } from '@/components/admin/StatusPill'
+import { eur, formatTimeShort } from '@/lib/admin/formatters'
 
 export default async function OverviewPage() {
   const { business } = await requireAdminSession()
@@ -24,16 +22,30 @@ export default async function OverviewPage() {
     getNextThirtyMinReservations(businessId),
   ])
 
+  const dateLabel = new Intl.DateTimeFormat('el-GR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(new Date())
+
   return (
-    <div className="fade-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <h1 className="heading-display" style={{ fontSize: 32, margin: 0 }}>Overview</h1>
-        <p style={{ fontSize: 13, color: 'var(--ash)' }}>
-          {new Intl.DateTimeFormat('el-GR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}
-        </p>
+    <div className="fade-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 72 }}>
+      <header style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <span className="eyebrow">{dateLabel}</span>
+        <h1 className="heading-display" style={{ fontSize: 'clamp(36px, 4.5vw, 48px)', margin: 0, lineHeight: 1.05 }}>
+          Overview
+        </h1>
       </header>
 
-      <section className="stats-grid" aria-label="Today's metrics">
+      <section
+        className="stats-grid"
+        aria-label="Today's metrics"
+        style={{
+          borderTop: '1px solid var(--mist)',
+          borderBottom: '1px solid var(--mist)',
+          padding: '32px 0',
+        }}
+      >
         <StatCard
           label="Today's reservations"
           value={stats.todayReservations}
@@ -64,74 +76,116 @@ export default async function OverviewPage() {
         <section
           aria-label="Next 30 minutes — pending"
           style={{
-            background: 'var(--pending-bg)',
-            border: '1px solid rgba(139, 87, 18, 0.18)',
-            borderRadius: 12,
-            padding: '14px 18px',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             gap: 14,
-            flexWrap: 'wrap',
+            paddingBottom: 8,
           }}
         >
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--pending-ink)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span className="eyebrow" style={{ color: 'var(--pending-ink)' }}>
             Next 30 min · still pending
           </span>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {nextThirty.slice(0, 5).map((r) => (
-              <span key={r.id} style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--pending-ink)' }}>
-                <strong>{formatTimeShort(r.reserved_at)}</strong>
-                <span>{r.customer_name ?? '—'}</span>
-                <span style={{ opacity: 0.6 }}>·</span>
-                <span>{r.party_size} pax</span>
+              <span
+                key={r.id}
+                style={{
+                  display: 'inline-flex',
+                  gap: 8,
+                  alignItems: 'baseline',
+                  fontSize: 13,
+                  color: 'var(--ink)',
+                  letterSpacing: '0.005em',
+                }}
+              >
+                <strong style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                  {formatTimeShort(r.reserved_at)}
+                </strong>
+                <span style={{ color: 'var(--charcoal)' }}>{r.customer_name ?? '—'}</span>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span style={{ color: 'var(--ash)' }}>{r.party_size} pax</span>
               </span>
             ))}
             {nextThirty.length > 5 && (
-              <span style={{ fontSize: 12, color: 'var(--pending-ink)' }}>+{nextThirty.length - 5} more</span>
+              <span style={{ fontSize: 12, color: 'var(--ash)' }}>+{nextThirty.length - 5} more</span>
             )}
           </div>
         </section>
       )}
 
       <section className="two-col">
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div
             style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid var(--mist)',
               display: 'flex',
               alignItems: 'baseline',
               justifyContent: 'space-between',
+              gap: 16,
             }}
           >
-            <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Today's reservations</h2>
-            <Link href="/admin/reservations" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
-              View all →
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className="eyebrow">Today</span>
+              <h2
+                className="heading-display"
+                style={{ fontSize: 22, margin: 0, lineHeight: 1.1 }}
+              >
+                Reservations
+              </h2>
+            </div>
+            <Link
+              href="/admin/reservations"
+              style={{
+                fontSize: 10,
+                color: 'var(--ash)',
+                textDecoration: 'none',
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                borderBottom: '1px solid var(--mist)',
+                paddingBottom: 1,
+              }}
+            >
+              View all
             </Link>
           </div>
-          <div style={{ padding: 12 }}>
-            <ReservationsTable rows={todayReservations} variant="today" selectable={false} />
-          </div>
+          <ReservationsTable rows={todayReservations} variant="today" selectable={false} />
         </div>
 
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div
             style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid var(--mist)',
               display: 'flex',
               alignItems: 'baseline',
               justifyContent: 'space-between',
+              gap: 16,
             }}
           >
-            <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Today's orders</h2>
-            <Link href="/admin/orders" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
-              View all →
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className="eyebrow">Today</span>
+              <h2
+                className="heading-display"
+                style={{ fontSize: 22, margin: 0, lineHeight: 1.1 }}
+              >
+                Orders
+              </h2>
+            </div>
+            <Link
+              href="/admin/orders"
+              style={{
+                fontSize: 10,
+                color: 'var(--ash)',
+                textDecoration: 'none',
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                borderBottom: '1px solid var(--mist)',
+                paddingBottom: 1,
+              }}
+            >
+              View all
             </Link>
           </div>
-          <div style={{ padding: 12 }}>
-            <OrdersTable rows={todayOrders} variant="today" selectable={false} />
-          </div>
+          <OrdersTable rows={todayOrders} variant="today" selectable={false} />
         </div>
       </section>
     </div>

@@ -25,34 +25,54 @@ export function Sidebar({ business }: Props) {
 
   return (
     <aside className="sidebar" aria-label="Admin navigation">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--mist)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          marginBottom: 40,
+          paddingBottom: 24,
+          borderBottom: '1px solid var(--rule)',
+        }}
+      >
         {business.logo_url ? (
           <Image
             src={business.logo_url}
             alt={business.name}
             width={120}
-            height={36}
-            style={{ objectFit: 'contain', objectPosition: 'left center', maxHeight: 36 }}
+            height={32}
+            style={{ objectFit: 'contain', objectPosition: 'left center', maxHeight: 32 }}
             priority
           />
         ) : (
-          <span style={{
-            fontSize: 17,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            lineHeight: 1.1,
-            fontFamily: 'var(--font-body, system-ui, sans-serif)',
-            color: 'var(--ink)',
-          }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-display, "Fraunces", Georgia, serif)',
+              fontSize: 18,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              color: 'var(--ink)',
+            }}
+          >
             {business.name}
           </span>
         )}
-        <span style={{ fontSize: 11, color: 'var(--ash)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500 }}>
+        <span
+          style={{
+            fontSize: 9,
+            color: 'var(--ash)',
+            letterSpacing: '0.20em',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            marginTop: 4,
+          }}
+        >
           Admin
         </span>
       </div>
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {links.map((l) => {
           const active = isActive(l.href, l.exact)
           const Icon = l.icon
@@ -63,7 +83,7 @@ export function Sidebar({ business }: Props) {
               className="sidebar-link"
               aria-current={active ? 'page' : undefined}
             >
-              <Icon size={16} strokeWidth={1.75} />
+              <Icon size={14} strokeWidth={1.5} />
               <span>{l.label}</span>
             </Link>
           )

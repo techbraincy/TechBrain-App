@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 
-// Live clock. Operating-hours wiring is a TODO once the operating_hours feed
-// is exposed to the client. Falls back to clock-only presentation.
 export function HoursIndicator() {
   const [now, setNow] = useState<string>('')
 
@@ -25,16 +23,17 @@ export function HoursIndicator() {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
-        fontSize: 12,
+        fontSize: 11,
         color: 'var(--charcoal)',
         fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '0.04em',
       }}
     >
       <span
         aria-hidden="true"
         style={{
-          width: 6,
-          height: 6,
+          width: 5,
+          height: 5,
           borderRadius: 999,
           background: 'var(--success-ink)',
           display: 'inline-block',

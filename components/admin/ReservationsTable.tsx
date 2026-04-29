@@ -31,8 +31,8 @@ export function ReservationsTable({ rows, variant = 'full', selectable = true }:
   if (rows.length === 0) {
     return (
       <EmptyTable
-        title="No reservations"
-        hint="Voice agent is listening — bookings will appear here as they come in."
+        title="Awaiting reservations"
+        hint="Voice agent is active. Incoming bookings will appear here in real time."
       />
     )
   }

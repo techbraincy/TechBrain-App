@@ -9,7 +9,7 @@ interface Props {
   userEmail: string
 }
 
-export function Topbar({ business, userEmail }: Props) {
+export function Topbar({ business: _business, userEmail }: Props) {
   const initials =
     userEmail
       .split('@')[0]
@@ -27,15 +27,13 @@ export function Topbar({ business, userEmail }: Props) {
           flex: '0 0 320px',
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          background: 'var(--cream)',
-          border: '1px solid var(--mist)',
-          borderRadius: 6,
-          padding: '0 10px',
+          gap: 10,
+          borderBottom: '1px solid var(--rule)',
+          padding: '0 0 6px',
           height: 32,
         }}
       >
-        <Search size={14} color="var(--ash)" aria-hidden="true" />
+        <Search size={13} color="var(--ash)" aria-hidden="true" strokeWidth={1.5} />
         <input
           type="search"
           placeholder="Search reference, name or phone…"
@@ -48,6 +46,7 @@ export function Topbar({ business, userEmail }: Props) {
             fontSize: 13,
             color: 'var(--ink)',
             fontFamily: 'inherit',
+            letterSpacing: '0.005em',
           }}
         />
         <kbd
@@ -56,17 +55,18 @@ export function Topbar({ business, userEmail }: Props) {
             fontFamily: 'var(--font-mono, monospace)',
             fontSize: 10,
             color: 'var(--ash)',
-            border: '1px solid var(--mist)',
-            borderRadius: 3,
-            padding: '1px 4px',
-            background: 'var(--paper)',
+            border: 'none',
+            borderRadius: 0,
+            padding: 0,
+            background: 'transparent',
+            letterSpacing: '0.04em',
           }}
         >
           ⌘K
         </kbd>
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 24 }}>
         <HoursIndicator />
         <div
           aria-label={`Account ${userEmail}`}
@@ -74,14 +74,15 @@ export function Topbar({ business, userEmail }: Props) {
             width: 28,
             height: 28,
             borderRadius: '50%',
-            background: 'var(--accent-soft)',
-            color: 'var(--accent)',
+            background: 'transparent',
+            color: 'var(--ink)',
+            border: '1px solid var(--mist)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 600,
-            letterSpacing: '0.02em',
+            letterSpacing: '0.06em',
           }}
         >
           {initials}

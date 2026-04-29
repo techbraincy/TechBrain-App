@@ -28,34 +28,50 @@ export function StatCard({ label, value, delta, hint }: Props) {
 
   return (
     <article
-      className="card card-pad"
       aria-label={label}
-      style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        padding: '4px 32px 4px 0',
+        borderRight: '1px solid var(--rule)',
+      }}
     >
       <span
         style={{
-          fontSize: 11,
-          letterSpacing: '0.08em',
+          fontSize: 10,
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color: 'var(--ash)',
-          fontWeight: 500,
+          fontWeight: 600,
         }}
       >
         {label}
       </span>
-      <span className="stat-number" style={{ fontSize: 44, lineHeight: 1.05 }}>
+      <span className="stat-number" style={{ fontSize: 56 }}>
         {value}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-        {deltaText && (
-          <span style={{ fontSize: 12, color: deltaColor, fontVariantNumeric: 'tabular-nums' }}>
-            {deltaText}
-          </span>
-        )}
-        {hint && (
-          <span style={{ fontSize: 12, color: 'var(--charcoal)' }}>{hint}</span>
-        )}
-      </div>
+      {(deltaText || hint) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -4 }}>
+          {deltaText && (
+            <span
+              style={{
+                fontSize: 11,
+                color: deltaColor,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {deltaText}
+            </span>
+          )}
+          {hint && (
+            <span style={{ fontSize: 11, color: 'var(--ash)', letterSpacing: '0.01em' }}>
+              {hint}
+            </span>
+          )}
+        </div>
+      )}
     </article>
   )
 }

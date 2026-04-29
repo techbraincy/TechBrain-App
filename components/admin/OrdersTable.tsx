@@ -33,8 +33,8 @@ export function OrdersTable({ rows, variant = 'full', selectable = true }: Props
   if (rows.length === 0) {
     return (
       <EmptyTable
-        title="No orders"
-        hint="Voice agent and storefront are listening — orders will appear here."
+        title="Listening for orders"
+        hint="Voice agent and storefront are active. New orders will stream in here."
       />
     )
   }
