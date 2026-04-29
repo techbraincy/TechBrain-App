@@ -15,35 +15,44 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-const inputStyle: React.CSSProperties = {
+// Inputs sit directly on the warm background — no white fill, no card
+const inputBase: React.CSSProperties = {
   width: '100%',
-  height: 48,
+  height: 46,
   padding: '0 14px',
   fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
   fontSize: 14,
   color: '#111110',
-  background: '#FAFAF9',
-  border: '1px solid #D8D5D0',
-  borderRadius: 8,
+  background: 'transparent',
+  border: '1px solid #C8C5BF',
+  borderRadius: 4,
   outline: 'none',
   boxSizing: 'border-box',
-  transition: 'border-color 0.15s, box-shadow 0.15s',
+  transition: 'border-color 0.12s',
+  letterSpacing: '0.01em',
 }
 
-const labelStyle: React.CSSProperties = {
+const inputFocused: React.CSSProperties = {
+  borderColor: '#111110',
+  background: 'rgba(255,255,255,0.45)',
+}
+
+const labelBase: React.CSSProperties = {
   display: 'block',
   fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-  fontSize: 13,
-  fontWeight: 500,
-  color: '#3A3A38',
-  marginBottom: 6,
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.10em',
+  textTransform: 'uppercase' as const,
+  color: '#9A9590',
+  marginBottom: 8,
 }
 
 export function LoginForm() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('redirect') ?? '/dashboard'
-  const [showPw, setShowPw]         = useState(false)
+  const [showPw, setShowPw]           = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [emailFocus, setEmailFocus]   = useState(false)
   const [pwFocus, setPwFocus]         = useState(false)
@@ -59,7 +68,6 @@ export function LoginForm() {
       email: data.email,
       password: data.password,
     })
-
     if (error) {
       setServerError(
         error.message.includes('Invalid login credentials')
@@ -68,48 +76,44 @@ export function LoginForm() {
       )
       return
     }
-
     router.push(redirectTo)
     router.refresh()
   }
 
-  const focusStyle: React.CSSProperties = {
-    borderColor: '#3A3A38',
-    boxShadow: '0 0 0 3px rgba(58,58,56,0.10)',
-    background: '#FFFFFF',
-  }
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
+    >
       {/* Email */}
-      <div>
-        <label htmlFor="email" style={labelStyle}>Email</label>
+      <div style={{ marginBottom: 20 }}>
+        <label htmlFor="email" style={labelBase}>Email</label>
         <input
           id="email"
           type="email"
           placeholder="you@example.com"
           autoComplete="email"
-          style={{ ...inputStyle, ...(emailFocus ? focusStyle : {}) }}
+          style={{ ...inputBase, ...(emailFocus ? inputFocused : {}) }}
           onFocus={() => setEmailFocus(true)}
           {...register('email', { onBlur: () => setEmailFocus(false) })}
         />
         {errors.email && (
-          <p style={{ margin: '5px 0 0', fontSize: 12, color: '#C0392B' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030', letterSpacing: '0.01em' }}>
             {errors.email.message}
           </p>
         )}
       </div>
 
       {/* Password */}
-      <div>
-        <label htmlFor="password" style={labelStyle}>Κωδικός</label>
+      <div style={{ marginBottom: 32 }}>
+        <label htmlFor="password" style={labelBase}>Κωδικός</label>
         <div style={{ position: 'relative' }}>
           <input
             id="password"
             type={showPw ? 'text' : 'password'}
             placeholder="••••••••"
             autoComplete="current-password"
-            style={{ ...inputStyle, paddingRight: 44, ...(pwFocus ? focusStyle : {}) }}
+            style={{ ...inputBase, paddingRight: 44, ...(pwFocus ? inputFocused : {}) }}
             onFocus={() => setPwFocus(true)}
             {...register('password', { onBlur: () => setPwFocus(false) })}
           />
@@ -119,88 +123,95 @@ export function LoginForm() {
             aria-label={showPw ? 'Hide password' : 'Show password'}
             style={{
               position: 'absolute',
-              right: 14,
+              right: 13,
               top: '50%',
               transform: 'translateY(-50%)',
               background: 'none',
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              color: '#8A8A85',
+              color: '#B0ACA6',
               display: 'flex',
               alignItems: 'center',
+              transition: 'color 0.12s',
             }}
           >
-            {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
         {errors.password && (
-          <p style={{ margin: '5px 0 0', fontSize: 12, color: '#C0392B' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#B04030', letterSpacing: '0.01em' }}>
             {errors.password.message}
           </p>
         )}
       </div>
 
-      {/* Server error */}
+      {/* Server error — inline, no card */}
       {serverError && (
-        <div
+        <p
           style={{
-            padding: '10px 14px',
-            background: '#FEF2F2',
-            border: '1px solid #FECACA',
-            borderRadius: 8,
+            margin: '0 0 20px',
             fontSize: 13,
-            color: '#991B1B',
+            color: '#B04030',
             fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+            lineHeight: 1.5,
           }}
         >
           {serverError}
-        </div>
+        </p>
       )}
 
-      {/* Submit */}
+      {/* Submit — full black, no radius softness */}
       <button
         type="submit"
         disabled={isSubmitting}
         style={{
           height: 50,
           width: '100%',
-          background: isSubmitting ? '#3A3A38' : '#1C1C1A',
-          color: '#F9F7F4',
+          background: '#111110',
+          color: '#F3F1ED',
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: 600,
-          letterSpacing: '0.02em',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
           border: 'none',
-          borderRadius: 8,
+          borderRadius: 4,
           cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          transition: 'background 0.15s, transform 0.1s',
-          marginTop: 2,
+          opacity: isSubmitting ? 0.6 : 1,
+          transition: 'opacity 0.15s, background 0.15s',
+          marginBottom: 32,
         }}
         onMouseEnter={(e) => {
-          if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#333331'
+          if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#2A2A28'
         }}
         onMouseLeave={(e) => {
-          if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#1C1C1A'
+          if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#111110'
         }}
       >
         {isSubmitting ? 'Σύνδεση…' : 'Σύνδεση'}
       </button>
 
-      {/* Register link */}
+      {/* Register — far below the button, very quiet */}
       <p
         style={{
-          textAlign: 'center',
-          fontSize: 13,
-          color: '#8A8A85',
+          fontSize: 12,
+          color: '#B0ACA6',
           margin: 0,
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
+          letterSpacing: '0.01em',
         }}
       >
         Δεν έχεις λογαριασμό;{' '}
         <Link
           href="/register"
-          style={{ color: '#3A3A38', fontWeight: 600, textDecoration: 'none' }}
+          style={{
+            color: '#6A6A65',
+            fontWeight: 500,
+            textDecoration: 'none',
+            borderBottom: '1px solid #C8C5BF',
+            paddingBottom: 1,
+          }}
         >
           Εγγραφή
         </Link>

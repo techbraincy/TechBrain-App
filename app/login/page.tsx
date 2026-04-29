@@ -9,87 +9,75 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#F9F7F4',
+        background: '#F3F1ED',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px 24px',
-        position: 'relative',
+        // Pulls layout to ~38% from top — slightly above center, not mathematical midpoint
+        justifyContent: 'flex-start',
+        paddingTop: 'clamp(72px, 14vh, 140px)',
+        paddingBottom: '80px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
       }}
     >
-      {/* Top accent line */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          background: '#1C1C1A',
-        }}
-      />
+      <div style={{ width: '100%', maxWidth: 380 }}>
 
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        {/* Wordmark */}
-        <div style={{ marginBottom: 40 }}>
+        {/* Wordmark — small, tracked, anchors the space */}
+        <div style={{ marginBottom: 56 }}>
           <span
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: 600,
-              letterSpacing: '0.12em',
+              letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: '#8A8A85',
+              color: '#9A9590',
             }}
           >
             TechBrain
           </span>
         </div>
 
-        {/* Headline */}
-        <div style={{ marginBottom: 36 }}>
+        {/* Headline — dominant, large, tight */}
+        <div style={{ marginBottom: 20 }}>
           <h1
             style={{
               fontFamily: 'var(--font-display, "Fraunces", serif)',
-              fontSize: 'clamp(26px, 5vw, 32px)',
-              fontWeight: 600,
-              lineHeight: 1.25,
+              fontSize: 'clamp(36px, 6vw, 44px)',
+              fontWeight: 500,
+              lineHeight: 1.08,
+              letterSpacing: '-0.02em',
               color: '#111110',
-              margin: '0 0 10px',
-              letterSpacing: '-0.01em',
+              margin: 0,
             }}
           >
             Your restaurant.<br />
             One control panel.
           </h1>
+        </div>
+
+        {/* Subtext — quiet, subordinate to the headline */}
+        <div style={{ marginBottom: 52 }}>
           <p
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-              fontSize: 14,
-              color: '#8A8A85',
+              fontSize: 13,
+              color: '#9A9590',
               margin: 0,
-              lineHeight: 1.6,
+              lineHeight: 1.65,
+              letterSpacing: '0.01em',
             }}
           >
-            Συνδέσου για να δεις κρατήσεις, παραγγελίες και στατιστικά.
+            Κρατήσεις, παραγγελίες και στατιστικά — σε ένα μέρος.
           </p>
         </div>
 
-        {/* Form card */}
-        <div
-          style={{
-            background: '#FFFFFF',
-            border: '1px solid #D8D5D0',
-            borderRadius: 12,
-            padding: '28px 28px 24px',
-          }}
-        >
-          <Suspense>
-            <LoginForm />
-          </Suspense>
-        </div>
+        {/* Form — sits directly on the page, no container */}
+        <Suspense>
+          <LoginForm />
+        </Suspense>
+
       </div>
     </div>
   )
