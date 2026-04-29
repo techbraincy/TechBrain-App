@@ -13,9 +13,9 @@ export default function LoginPage() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        // Pulls layout to ~38% from top — slightly above center, not mathematical midpoint
+        // Pulls layout to ~35% from top — intentional vertical imbalance
         justifyContent: 'flex-start',
-        paddingTop: 'clamp(72px, 14vh, 140px)',
+        paddingTop: 'clamp(60px, 11vh, 116px)',
         paddingBottom: '80px',
         paddingLeft: '24px',
         paddingRight: '24px',
@@ -24,7 +24,7 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 380 }}>
 
         {/* Wordmark — small, tracked, anchors the space */}
-        <div style={{ marginBottom: 56 }}>
+        <div style={{ marginBottom: 52 }}>
           <span
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
@@ -40,15 +40,15 @@ export default function LoginPage() {
         </div>
 
         {/* Headline — dominant, large, tight */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 18 }}>
           <h1
             style={{
               fontFamily: 'var(--font-display, "Fraunces", serif)',
-              fontSize: 'clamp(36px, 6vw, 44px)',
-              fontWeight: 500,
-              lineHeight: 1.08,
-              letterSpacing: '-0.02em',
-              color: '#111110',
+              fontSize: 'clamp(38px, 6.5vw, 47px)',
+              fontWeight: 600,
+              lineHeight: 1.05,
+              letterSpacing: '-0.025em',
+              color: '#0D0D0C',
               margin: 0,
             }}
           >
@@ -58,12 +58,12 @@ export default function LoginPage() {
         </div>
 
         {/* Subtext — quiet, subordinate to the headline */}
-        <div style={{ marginBottom: 52 }}>
+        <div style={{ marginBottom: 56 }}>
           <p
             style={{
               fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
               fontSize: 13,
-              color: '#9A9590',
+              color: '#A8A49E',
               margin: 0,
               lineHeight: 1.65,
               letterSpacing: '0.01em',

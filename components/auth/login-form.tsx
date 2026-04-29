@@ -24,7 +24,7 @@ const inputBase: React.CSSProperties = {
   fontSize: 14,
   color: '#111110',
   background: 'transparent',
-  border: '1px solid #C8C5BF',
+  border: '1px solid #B8B4AE',
   borderRadius: 4,
   outline: 'none',
   boxSizing: 'border-box',
@@ -40,12 +40,12 @@ const inputFocused: React.CSSProperties = {
 const labelBase: React.CSSProperties = {
   display: 'block',
   fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 600,
-  letterSpacing: '0.10em',
+  letterSpacing: '0.11em',
   textTransform: 'uppercase' as const,
-  color: '#9A9590',
-  marginBottom: 8,
+  color: '#ABA7A1',
+  marginBottom: 6,
 }
 
 export function LoginForm() {
@@ -86,7 +86,7 @@ export function LoginForm() {
       style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
     >
       {/* Email */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 18 }}>
         <label htmlFor="email" style={labelBase}>Email</label>
         <input
           id="email"
@@ -105,7 +105,7 @@ export function LoginForm() {
       </div>
 
       {/* Password */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 28 }}>
         <label htmlFor="password" style={labelBase}>Κωδικός</label>
         <div style={{ position: 'relative' }}>
           <input
@@ -166,21 +166,21 @@ export function LoginForm() {
         type="submit"
         disabled={isSubmitting}
         style={{
-          height: 50,
+          height: 52,
           width: '100%',
           background: '#111110',
           color: '#F3F1ED',
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 600,
-          letterSpacing: '0.12em',
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
           border: 'none',
           borderRadius: 4,
           cursor: isSubmitting ? 'not-allowed' : 'pointer',
           opacity: isSubmitting ? 0.6 : 1,
           transition: 'opacity 0.15s, background 0.15s',
-          marginBottom: 32,
+          marginBottom: 30,
         }}
         onMouseEnter={(e) => {
           if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = '#2A2A28'
