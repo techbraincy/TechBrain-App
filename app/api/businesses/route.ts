@@ -6,12 +6,20 @@ import { createAgent } from '@/lib/elevenlabs/client'
 import type { OnboardingInput } from '@/types/db'
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now()
+  const log = (event: string, data: Record<string, unknown> = {}) => {
+    // eslint-disable-next-line no-console
+    console.log(`[provision] ${event}`, { elapsedMs: Date.now() - t0, ...data })
+  }
+
   // 1. Auth check
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
+    log('auth.failed')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  log('auth.ok', { userId: user.id })
 
   let body: OnboardingInput
   try {
@@ -60,23 +68,26 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (bizError || !business) {
-    console.error('[provision] businesses insert:', bizError)
+    log('business.insert.failed', { error: bizError?.message })
     return NextResponse.json({ error: 'Failed to create business record' }, { status: 500 })
   }
 
   const businessId = business.id
+  log('business.insert.ok', { businessId, slug })
 
-  // 4. Create owner membership
+  // 4. Create owner membership — MUST succeed before we return any success,
+  // otherwise the user owns nothing and getSession() can't link them.
   const { error: memberError } = await admin
     .from('business_members')
     .insert({ business_id: businessId, user_id: user.id, role: 'owner' })
 
   if (memberError) {
-    console.error('[provision] business_members insert:', memberError)
-    // Best effort — clean up and fail
+    log('business_members.insert.failed', { businessId, userId: user.id, error: memberError.message })
+    // Best effort — clean up and fail loudly
     await admin.from('businesses').delete().eq('id', businessId)
     return NextResponse.json({ error: 'Failed to assign ownership' }, { status: 500 })
   }
+  log('business_members.insert.ok', { businessId, userId: user.id, role: 'owner' })
 
   // 5. Create feature flags
   const features = body.features ?? {}
@@ -94,7 +105,8 @@ export async function POST(req: NextRequest) {
       live_tracking_enabled:  !!features.live_tracking_enabled,
     })
 
-  if (featError) console.error('[provision] business_features insert:', featError)
+  if (featError) log('business_features.insert.failed', { error: featError.message })
+  else log('business_features.insert.ok', { businessId })
 
   // 6. Create operating hours
   if (body.operating_hours?.length) {
@@ -219,7 +231,13 @@ export async function POST(req: NextRequest) {
   let setupStatus: 'complete' | 'failed' = 'complete'
   let setupError: string | null = null
 
+  // ElevenLabs agent creation is NON-BLOCKING for the request lifecycle:
+  // - if the API key is missing, we skip silently (setupStatus stays 'complete')
+  // - if the call fails, we record setupStatus='failed' with the error and
+  //   surface it in the dashboard banner. The user can retry from the AI Agent
+  //   page. We never roll back the business/membership rows for an agent error.
   if (process.env.ELEVENLABS_API_KEY && agentConfig) {
+    log('agent.create.start', { businessId })
     try {
       // Fetch everything we just inserted for the agent builder
       const [hoursResult, menuResult, faqResult, resConfigResult, delConfigResult, featResult] = await Promise.all([
@@ -243,6 +261,7 @@ export async function POST(req: NextRequest) {
       })
 
       agentId = await createAgent(payload)
+      log('agent.create.ok', { businessId, agentId })
 
       // Store agent_id and mark config as synced
       await Promise.all([
@@ -253,16 +272,18 @@ export async function POST(req: NextRequest) {
         }).eq('business_id', businessId),
       ])
     } catch (err: any) {
-      console.error('[provision] ElevenLabs agent creation failed:', err.message)
+      // Non-fatal. The user already owns the business; the agent can be
+      // created/retried from the AI Agent page later.
+      log('agent.create.failed', { businessId, error: err?.message })
       setupStatus = 'failed'
-      setupError  = err.message
+      setupError  = err?.message ?? 'unknown'
       await admin.from('agent_configs').update({
         sync_status: 'failed',
-        sync_error:  err.message,
+        sync_error:  setupError,
       }).eq('business_id', businessId)
     }
   } else if (!process.env.ELEVENLABS_API_KEY) {
-    // No API key configured — skip silently, mark as pending
+    log('agent.create.skipped', { reason: 'no_api_key' })
     setupStatus = 'complete'
   }
 
@@ -282,5 +303,6 @@ export async function POST(req: NextRequest) {
     new_data:    { name: body.name, features },
   })
 
+  log('done', { businessId, agentId, setupStatus, redirectTarget: '/admin' })
   return NextResponse.json({ businessId, agentId, setupStatus })
 }

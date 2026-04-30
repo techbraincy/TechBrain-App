@@ -126,14 +126,33 @@ export function OnboardingWizard() {
 
       const json = await res.json()
 
+      // eslint-disable-next-line no-console
+      console.log('[onboarding-submit] response', {
+        ok: res.ok,
+        status: res.status,
+        businessId: json?.businessId ?? null,
+        agentId: json?.agentId ?? null,
+        setupStatus: json?.setupStatus ?? null,
+        error: json?.error ?? null,
+      })
+
       if (!res.ok) {
         throw new Error(json.error ?? 'Σφάλμα κατά τη δημιουργία της επιχείρησης')
       }
 
-      toast.success('Η επιχείρησή σας δημιουργήθηκε! Ανακατεύθυνση…')
-      // Hard navigate so session cookie is re-read with the new business membership
-      window.location.href = `/voice-agent/${json.businessId}`
+      if (json.setupStatus === 'failed') {
+        toast.success('Η επιχείρησή σας δημιουργήθηκε. Ο AI agent θα ρυθμιστεί στο επόμενο βήμα.')
+      } else {
+        toast.success('Η επιχείρησή σας δημιουργήθηκε! Ανακατεύθυνση…')
+      }
+
+      // Land on /admin — requireAdminSession resolves the new business via
+      // session.businesses (admin client, RLS-bypassed). Hard navigation so
+      // the auth cookie is fully visible to the next server request.
+      window.location.assign('/admin')
     } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('[onboarding-submit] failed', err)
       toast.error(err.message ?? 'Κάτι πήγε στραβά')
       setSubmitting(false)
     }
