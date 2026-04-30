@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { HoursIndicator } from './HoursIndicator'
 import type { BusinessWithMembership } from '@/types/db'
@@ -68,8 +69,10 @@ export function Topbar({ business: _business, userEmail }: Props) {
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 24 }}>
         <HoursIndicator />
-        <div
-          aria-label={`Account ${userEmail}`}
+        <Link
+          href="/profile"
+          aria-label={`Account ${userEmail} — open profile`}
+          title="Profile"
           style={{
             width: 28,
             height: 28,
@@ -83,10 +86,12 @@ export function Topbar({ business: _business, userEmail }: Props) {
             fontSize: 10,
             fontWeight: 600,
             letterSpacing: '0.06em',
+            textDecoration: 'none',
+            transition: 'border-color 0.12s, background 0.12s',
           }}
         >
           {initials}
-        </div>
+        </Link>
       </div>
     </header>
   )
