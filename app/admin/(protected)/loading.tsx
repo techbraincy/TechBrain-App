@@ -16,22 +16,13 @@ export default function Loading() {
         style={{
           borderTop: '1px solid var(--mist)',
           borderBottom: '1px solid var(--mist)',
-          padding: '32px 0',
+          padding: '36px 0',
         }}
       >
         {[0, 1, 2, 3].map((i) => (
-          <article
-            key={i}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              padding: '4px 32px 4px 0',
-              borderRight: '1px solid var(--rule)',
-            }}
-          >
+          <article key={i} className="stat-card">
             <div className="skeleton" style={{ width: 110, height: 10 }} />
-            <div className="skeleton" style={{ width: 96, height: 56 }} />
+            <div className="skeleton" style={{ width: 96, height: 52 }} />
             <div className="skeleton" style={{ width: 130, height: 11 }} />
           </article>
         ))}

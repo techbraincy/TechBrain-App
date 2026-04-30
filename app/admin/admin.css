@@ -245,10 +245,12 @@
   margin-left: 240px;
   min-height: 100vh;
   background: var(--surface);
+  overflow-x: hidden;
 }
 [data-admin-root] .admin-content {
   padding: 48px 40px 80px;
   max-width: 1440px;
+  margin: 0 auto;
 }
 
 /* ── Layout helpers ───────────────────────── */
@@ -261,6 +263,48 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
+  min-width: 0;
+}
+[data-admin-root] .two-col > * { min-width: 0; }
+
+/* ── Stat card ────────────────────────────── */
+[data-admin-root] .stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 28px 4px 0;
+  border-right: 1px solid var(--rule);
+  min-width: 0;
+}
+[data-admin-root] .stat-card:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+[data-admin-root] .stat-card + .stat-card {
+  padding-left: 28px;
+}
+[data-admin-root] .stat-card-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ash);
+  font-weight: 600;
+}
+[data-admin-root] .stat-card-value {
+  font-size: clamp(36px, 3.5vw, 52px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-admin-root] .stat-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
 }
 
 /* ── Live agent pulse ─────────────────────── */

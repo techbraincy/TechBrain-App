@@ -27,49 +27,15 @@ export function StatCard({ label, value, delta, hint }: Props) {
   }
 
   return (
-    <article
-      aria-label={label}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-        padding: '4px 32px 4px 0',
-        borderRight: '1px solid var(--rule)',
-      }}
-    >
-      <span
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--ash)',
-          fontWeight: 600,
-        }}
-      >
-        {label}
-      </span>
-      <span className="stat-number" style={{ fontSize: 56 }}>
-        {value}
-      </span>
+    <article className="stat-card" aria-label={label}>
+      <span className="stat-card-label">{label}</span>
+      <span className="stat-number stat-card-value">{value}</span>
       {(deltaText || hint) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -4 }}>
+        <div className="stat-card-meta">
           {deltaText && (
-            <span
-              style={{
-                fontSize: 11,
-                color: deltaColor,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {deltaText}
-            </span>
+            <span style={{ color: deltaColor }}>{deltaText}</span>
           )}
-          {hint && (
-            <span style={{ fontSize: 11, color: 'var(--ash)', letterSpacing: '0.01em' }}>
-              {hint}
-            </span>
-          )}
+          {hint && <span style={{ color: 'var(--ash)' }}>{hint}</span>}
         </div>
       )}
     </article>

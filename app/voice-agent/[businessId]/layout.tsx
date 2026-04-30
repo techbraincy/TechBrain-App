@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { requireBusinessAccess } from '@/lib/auth/session'
 import { Sidebar } from '@/components/layouts/sidebar'
 
@@ -8,6 +9,13 @@ interface Props {
 
 export default async function BusinessLayout({ children, params }: Props) {
   const { session, business } = await requireBusinessAccess(params.businessId)
+
+  // Voice agent creator/configuration surface is restricted to platform
+  // admins (TechBrain). Restaurant/cafe owners and staff use /admin/* for
+  // their operational pages (overview, orders, reservations, branding).
+  if (session.user.system_role !== 'super_admin') {
+    redirect('/admin')
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

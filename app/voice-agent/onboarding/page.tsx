@@ -1,9 +1,19 @@
+import { redirect } from 'next/navigation'
 import { OnboardingWizard } from "@/components/voice-agent/OnboardingWizard";
 import { Mic2 } from "lucide-react";
+import { requireSession } from '@/lib/auth/session'
 
 export const metadata = { title: "New Business — Voice Agent" };
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const session = await requireSession()
+
+  // Creating new businesses through the voice-agent product is platform-admin
+  // only. Regular users complete onboarding through /onboarding once.
+  if (session.user.system_role !== 'super_admin') {
+    redirect('/admin')
+  }
+
   return (
     <div className="animate-fade-up">
       <div className="mb-8 text-center">

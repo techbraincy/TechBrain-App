@@ -43,7 +43,7 @@ export default async function OverviewPage() {
         style={{
           borderTop: '1px solid var(--mist)',
           borderBottom: '1px solid var(--mist)',
-          padding: '32px 0',
+          padding: '36px 0',
         }}
       >
         <StatCard
