@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, CalendarRange, Receipt, Palette } from 'lucide-react'
+import { LayoutGrid, CalendarRange, Receipt } from 'lucide-react'
 import { LiveAgentPulse } from './LiveAgentPulse'
 import type { BusinessWithMembership } from '@/types/db'
 
@@ -17,7 +17,6 @@ export function Sidebar({ business }: Props) {
     { href: '/admin', label: 'Overview', icon: LayoutGrid, exact: true },
     { href: '/admin/reservations', label: 'Reservations', icon: CalendarRange, exact: false },
     { href: '/admin/orders', label: 'Orders', icon: Receipt, exact: false },
-    { href: '/admin/branding', label: 'Branding', icon: Palette, exact: false },
   ]
 
   const isActive = (href: string, exact: boolean) =>
