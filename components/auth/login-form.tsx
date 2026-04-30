@@ -68,9 +68,16 @@ export function LoginForm() {
       password: data.password,
     })
     if (error) {
+      const msg = error.message.toLowerCase()
+      // Supabase returns "Email not confirmed" when "Confirm email" is ON
+      // and the user hasn't completed the OTP verification step.
+      if (msg.includes('not confirmed') || msg.includes('email not confirmed')) {
+        router.push(`/verify?email=${encodeURIComponent(data.email)}`)
+        return
+      }
       setServerError(
-        error.message.includes('Invalid login credentials')
-          ? 'Λανθασμένο email ή κωδικός.'
+        msg.includes('invalid login credentials')
+          ? 'Λανθασμένο email ή κωδικός. Αν μόλις εγγράφηκες, επιβεβαίωσε πρώτα το email σου.'
           : error.message
       )
       return
@@ -160,7 +167,7 @@ export function LoginForm() {
         disabled={isSubmitting}
         style={{
           height: 52,
-          width: '100%',
+          width: 196,
           background: '#111110',
           color: '#F3F1ED',
           fontFamily: 'var(--font-body, "Hanken Grotesk", sans-serif)',

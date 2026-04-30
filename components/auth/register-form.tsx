@@ -68,24 +68,64 @@ export function RegisterForm() {
   async function onSubmit(data: FormData) {
     setServerError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+
+    // eslint-disable-next-line no-console
+    console.log('[register] signUp payload', {
       email: data.email,
-      password: data.password,
-      options: {
-        data: { full_name: data.full_name },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
+      passwordLen: data.password.length,
+      full_name: data.full_name,
     })
-    if (error) {
+
+    try {
+      const { data: result, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { full_name: data.full_name },
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      })
+
+      // eslint-disable-next-line no-console
+      console.log('[register] signUp response', {
+        userId: result?.user?.id ?? null,
+        identities: result?.user?.identities?.length ?? null,
+        confirmed: result?.user?.email_confirmed_at ?? null,
+        error,
+      })
+
+      if (error) {
+        const msg = error.message.toLowerCase()
+        if (msg.includes('already registered') || msg.includes('user already')) {
+          setServerError('Αυτό το email χρησιμοποιείται ήδη. Δοκίμασε σύνδεση.')
+          return
+        }
+        // Surface the raw Supabase message — do not hide DB/trigger errors
+        setServerError(`Signup failed: ${error.message}`)
+        return
+      }
+
+      // Supabase returns success with empty identities array when "Confirm email"
+      // is ON and the email is already registered. Treat as duplicate, do NOT
+      // redirect to /verify (the user will never receive a new OTP).
+      if (result?.user && (result.user.identities?.length ?? 0) === 0) {
+        setServerError('Αυτό το email χρησιμοποιείται ήδη. Δοκίμασε σύνδεση.')
+        return
+      }
+
+      if (!result?.user) {
+        setServerError('Signup did not return a user. Check Supabase configuration.')
+        return
+      }
+
+      router.push(`/verify?email=${encodeURIComponent(data.email)}`)
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[register] signUp threw', e)
       setServerError(
-        error.message.includes('already registered')
-          ? 'Αυτό το email χρησιμοποιείται ήδη.'
-          : error.message
+        `Unexpected error: ${e instanceof Error ? e.message : String(e)}`
       )
-      return
     }
-    router.push('/onboarding')
-    router.refresh()
   }
 
   const fieldStyle = (name: FieldName, extra?: React.CSSProperties): React.CSSProperties => ({
