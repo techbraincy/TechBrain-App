@@ -82,8 +82,9 @@ export function LoginForm() {
       )
       return
     }
-    router.push(redirectTo)
-    router.refresh()
+    // Hard navigation — see verify-form.tsx for rationale. Soft router.push()
+    // races the cookie write and middleware can see no session.
+    window.location.assign(redirectTo)
   }
 
   return (

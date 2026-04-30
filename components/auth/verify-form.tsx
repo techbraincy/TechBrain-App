@@ -66,24 +66,55 @@ export function VerifyForm() {
   async function onSubmit(data: FormData) {
     setServerError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.verifyOtp({
+    const { data: result, error } = await supabase.auth.verifyOtp({
       email: data.email,
       token: data.token,
       type: 'signup',
     })
+
+    // eslint-disable-next-line no-console
+    console.log('[verify] verifyOtp response', {
+      hasSession: !!result?.session,
+      hasUser: !!result?.user,
+      userId: result?.user?.id ?? null,
+      error,
+    })
+
     if (error) {
       const msg = error.message.toLowerCase()
       setServerError(
         msg.includes('expired')
           ? 'Ο κωδικός έληξε. Ζήτησε νέο κωδικό παρακάτω.'
-          : msg.includes('invalid')
+          : msg.includes('invalid') || msg.includes('token has expired')
             ? 'Λανθασμένος κωδικός. Έλεγξε το email σου και προσπάθησε ξανά.'
             : error.message
       )
       return
     }
-    router.push('/onboarding')
-    router.refresh()
+
+    if (!result?.session) {
+      setServerError(
+        'Η επιβεβαίωση πέτυχε αλλά δεν δημιουργήθηκε session. Δοκίμασε σύνδεση.'
+      )
+      return
+    }
+
+    // Confirm the session is actually visible to the SSR-cookie store before
+    // navigating. getSession() reads from the cookie storage adapter, so a
+    // success here means middleware on the next request will see it too.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      setServerError(
+        'Σφάλμα αποθήκευσης session. Δοκίμασε ξανά ή κάνε σύνδεση.'
+      )
+      return
+    }
+
+    // Hard navigation. router.push() triggers a soft RSC fetch that may run
+    // before the auth cookie is visible to the request — causing middleware
+    // to bounce the user to /login. window.location.assign forces a fresh
+    // browser request that always sends the latest cookies.
+    window.location.assign('/onboarding')
   }
 
   async function onResend() {

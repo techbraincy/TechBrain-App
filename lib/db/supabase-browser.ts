@@ -5,11 +5,19 @@ import type { Database } from '@/types/supabase'
 
 /**
  * Browser-side Supabase client for use in Client Components.
- * Singleton pattern: only one instance per page.
+ *
+ * True singleton: one instance per browser context. Multiple instances would
+ * each register their own cookie listeners and could race when one writes
+ * a refreshed token while another reads a stale one.
  */
-export function createClient() {
-  return createBrowserClient<Database>(
+type BrowserClient = ReturnType<typeof createBrowserClient<Database>>
+let browserClient: BrowserClient | null = null
+
+export function createClient(): BrowserClient {
+  if (browserClient) return browserClient
+  browserClient = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+  return browserClient
 }
