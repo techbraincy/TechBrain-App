@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routes accessible without authentication
@@ -20,6 +20,8 @@ const PUBLIC_PREFIXES = [
 ]
 
 export async function middleware(request: NextRequest) {
+  // The base response. Reassigned by setAll() whenever Supabase rotates
+  // the auth cookie so the refreshed token reaches the browser.
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -30,21 +32,26 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value)
-          )
+          })
           supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }
   )
 
-  // Refresh session — MUST be called before checking user
-  const { data: { user } } = await supabase.auth.getUser()
+  // CRITICAL: do not put any logic between createServerClient and getUser().
+  // getUser() validates the access token against the auth server and refreshes
+  // it via the refresh token if needed. Any code between the two can corrupt
+  // the cookie roundtrip and randomly log users out.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
@@ -52,19 +59,40 @@ export async function middleware(request: NextRequest) {
     PUBLIC_ROUTES.includes(pathname) ||
     PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 
-  // Unauthenticated → redirect to login (except public routes)
+  // Unauthenticated → redirect to login (except on public routes)
   if (!user && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+    return copyAuthCookies(NextResponse.redirect(loginUrl), supabaseResponse)
   }
 
-  // Authenticated → redirect away from auth pages
+  // Authenticated → redirect away from login/register pages
   if (user && (pathname === '/login' || pathname === '/register')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return copyAuthCookies(
+      NextResponse.redirect(new URL('/dashboard', request.url)),
+      supabaseResponse,
+    )
   }
 
+  // Pass-through. Returning supabaseResponse preserves any cookies that
+  // getUser() may have rotated.
   return supabaseResponse
+}
+
+/**
+ * Copy refreshed Supabase auth cookies from `from` onto `to`.
+ *
+ * When middleware needs to redirect, the redirect response is a fresh object
+ * that does NOT carry the cookies set on the working response. If Supabase
+ * rotated the access/refresh tokens during getUser(), those rotated cookies
+ * MUST be propagated onto the redirect — otherwise the browser keeps stale
+ * tokens and the next request will look unauthenticated, producing a loop.
+ */
+function copyAuthCookies(to: NextResponse, from: NextResponse): NextResponse {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value, cookie)
+  })
+  return to
 }
 
 export const config = {
