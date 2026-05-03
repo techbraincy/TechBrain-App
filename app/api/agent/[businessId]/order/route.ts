@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/db/supabase-server'
+import { requireAgentSecret } from '@/lib/auth/agent-auth'
 
 export async function POST(req: NextRequest, { params }: { params: { businessId: string } }) {
+  const denied = requireAgentSecret(req)
+  if (denied) return denied
   const admin = createAdminClient()
   const body  = await req.json().catch(() => ({}))
   const { customer_name, customer_phone, type, items, delivery_address, notes, language } = body

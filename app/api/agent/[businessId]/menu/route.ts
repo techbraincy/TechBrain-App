@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/db/supabase-server'
+import { requireAgentSecret } from '@/lib/auth/agent-auth'
 
-export async function GET(_req: NextRequest, { params }: { params: { businessId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { businessId: string } }) {
+  const denied = requireAgentSecret(req)
+  if (denied) return denied
   const admin = createAdminClient()
 
   const [{ data: categories }, { data: items }] = await Promise.all([
