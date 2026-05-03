@@ -15,6 +15,7 @@ const PUBLIC_PREFIXES = [
   '/shop/',             // customer ordering app (auth handled per-page)
   '/s/',                // public slug-based storefront redirects
   '/api/agent/',        // ElevenLabs tool webhooks (verified via header)
+  '/api/orders',        // unified order endpoint (auth enforced in route handler)
   '/api/webhook/',
   '/api/shop/',         // shop API (auth checked server-side per route)
 ]
