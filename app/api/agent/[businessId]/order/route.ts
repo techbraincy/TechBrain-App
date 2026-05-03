@@ -1,12 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/db/supabase-server'
 import { requireAgentSecret } from '@/lib/auth/agent-auth'
+import { createOrder } from '@/lib/orders/create'
+import type { OrderItemInput } from '@/lib/orders/types'
+import type { OrderType } from '@/types/db'
 
-export async function POST(req: NextRequest, { params }: { params: { businessId: string } }) {
+const ENDPOINT = 'POST /api/agent/order'
+
+/**
+ * Thin shim — delegates to createOrder() in lib/orders/create.ts.
+ * Parses the agent's free-form items string ("2x Coffee, 1x Croissant")
+ * into structured OrderItemInput[], then calls the same atomic RPC
+ * used by the unified POST /api/orders endpoint.
+ *
+ * Kept for deployed ElevenLabs agents that point at this URL.
+ * Migrate agents to POST /api/orders in a future sprint.
+ */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { businessId: string } }
+) {
   const denied = requireAgentSecret(req)
   if (denied) return denied
-  const admin = createAdminClient()
-  const body  = await req.json().catch(() => ({}))
+
+  // Idempotency key is required for all agent requests
+  const idempotencyKey = req.headers.get('idempotency-key')
+  if (!idempotencyKey) {
+    return NextResponse.json(
+      { success: false, error: 'Idempotency-Key header is required' },
+      { status: 400 }
+    )
+  }
+
+  const body = await req.json().catch(() => ({}))
   const { customer_name, customer_phone, type, items, delivery_address, notes, language } = body
 
   if (!customer_name || !customer_phone || !type || !items) {
@@ -23,90 +48,62 @@ export async function POST(req: NextRequest, { params }: { params: { businessId:
     )
   }
 
-  // Upsert customer
-  let customerId: string | null = null
-  const { data: customer } = await admin
-    .from('customers')
-    .upsert(
-      { business_id: params.businessId, phone: customer_phone, name: customer_name, language: language ?? 'el' },
-      { onConflict: 'business_id,phone', ignoreDuplicates: false }
+  // Parse agent's comma-separated string: "2x Coffee, 1x Croissant"
+  const parsedItems: OrderItemInput[] = String(items)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(\d+)[x×]\s*(.+)$/i)
+      return {
+        name:       match ? match[2].trim() : line,
+        quantity:   match ? Number(match[1]) : 1,
+        unit_price: 0,
+      }
+    })
+
+  if (parsedItems.length === 0) {
+    return NextResponse.json(
+      { success: false, error: 'No valid items parsed from items string' },
+      { status: 400 }
     )
-    .select('id')
-    .single()
-  customerId = customer?.id ?? null
+  }
 
-  // Get approval config
-  const { data: features } = await admin
-    .from('business_features')
-    .select('staff_approval_enabled')
-    .eq('business_id', params.businessId)
-    .single()
+  const lang: string = language ?? 'el'
 
-  // Generate reference
-  const { data: refResult } = await admin.rpc('generate_order_reference', { p_business_id: params.businessId })
-  const reference = refResult ?? `ORD-${Date.now()}`
-
-  const status = features?.staff_approval_enabled ? 'awaiting_approval' : 'accepted'
-
-  const { data: order, error } = await admin
-    .from('orders')
-    .insert({
-      business_id:       params.businessId,
-      customer_id:       customerId,
-      reference,
-      type,
-      source:            'phone',
-      status,
+  try {
+    const result = await createOrder({
+      business_id:      params.businessId,
       customer_name,
       customer_phone,
-      delivery_address:  delivery_address ?? null,
-      delivery_notes:    notes ?? null,
-      preferred_language: language ?? 'el',
-      subtotal:          0,
-      delivery_fee:      0,
-      total:             0,
+      type:             type as OrderType,
+      source:           'phone',
+      items:            parsedItems,
+      delivery_address: delivery_address ?? null,
+      notes:            notes ?? null,
+      language:         lang,
+      idempotency_key:  idempotencyKey,
+      endpoint:         ENDPOINT,
     })
-    .select('reference, status')
-    .single()
 
-  if (error || !order) {
-    console.error('[agent/order]', error)
+    const msg =
+      result.status === 'awaiting_approval'
+        ? lang === 'en'
+          ? `Your order has been received. Reference: ${result.reference}. We will confirm shortly.`
+          : `Η παραγγελία σας ελήφθη. Αριθμός: ${result.reference}. Θα επιβεβαιωθεί σύντομα.`
+        : lang === 'en'
+          ? `Your order is confirmed! Reference: ${result.reference}.`
+          : `Η παραγγελία σας επιβεβαιώθηκε! Αριθμός: ${result.reference}.`
+
+    return NextResponse.json({
+      success:   true,
+      reference: result.reference,
+      status:    result.status,
+      message:   msg,
+      ...(result.replayed ? { replayed: true } : {}),
+    })
+  } catch (err) {
+    console.error('[agent/order]', err)
     return NextResponse.json({ success: false, error: 'Failed to create order' }, { status: 500 })
   }
-
-  // Parse items string and create order_items (best effort)
-  const itemLines = String(items).split(',').map((s) => s.trim()).filter(Boolean)
-  const orderItems = itemLines.map((line) => {
-    const match = line.match(/^(\d+)[x×]\s*(.+)$/i)
-    const qty  = match ? Number(match[1]) : 1
-    const name = match ? match[2].trim() : line
-    return { order_id: order.reference, business_id: params.businessId, name_el: name, unit_price: 0, quantity: qty }
-  })
-
-  if (orderItems.length) {
-    // We need the actual order.id — fetch it
-    const { data: fullOrder } = await admin
-      .from('orders')
-      .select('id')
-      .eq('business_id', params.businessId)
-      .eq('reference', reference)
-      .single()
-
-    if (fullOrder) {
-      await admin.from('order_items').insert(
-        orderItems.map((i) => ({ ...i, order_id: fullOrder.id }))
-      )
-    }
-  }
-
-  const msg =
-    status === 'awaiting_approval'
-      ? (language === 'en'
-          ? `Your order has been received. Reference: ${reference}. We will confirm shortly.`
-          : `Η παραγγελία σας ελήφθη. Αριθμός: ${reference}. Θα επιβεβαιωθεί σύντομα.`)
-      : (language === 'en'
-          ? `Your order is confirmed! Reference: ${reference}.`
-          : `Η παραγγελία σας επιβεβαιώθηκε! Αριθμός: ${reference}.`)
-
-  return NextResponse.json({ success: true, reference, status, message: msg })
 }
